@@ -22,8 +22,23 @@
     </script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
+        /* Nasconde la scrollbar vecchia ovunque non serve */
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* SCROLLBAR INTELLIGENTE: Visibile su PC, invisibile su Touch/Smartphone */
+        .custom-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        
+        @media (hover: none) and (pointer: coarse) {
+            .custom-scrollbar::-webkit-scrollbar { display: none; }
+            .custom-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        }
+
         body { margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; overflow-x: hidden; width: 100%; }
         #root { width: 100%; overflow-x: hidden; }
         * { box-sizing: border-box; }
@@ -521,7 +536,7 @@
                         </div>
                         <X className="w-6 h-6 cursor-pointer text-slate-500 hover:text-red-500 transition-colors" onPointerDown={(e) => { e.stopPropagation(); setShowCalc(false); }} />
                     </div>
-                    <div className={`w-full p-4 mb-4 rounded-xl text-right text-3xl font-black tracking-wider overflow-x-auto hide-scrollbar whitespace-nowrap ${isDarkMode ? 'bg-slate-900 text-emerald-400 shadow-inner' : 'bg-white text-emerald-600 shadow-inner'}`}>
+                    <div className={`w-full p-4 mb-4 rounded-xl text-right text-3xl font-black tracking-wider overflow-x-auto custom-scrollbar whitespace-nowrap ${isDarkMode ? 'bg-slate-900 text-emerald-400 shadow-inner' : 'bg-white text-emerald-600 shadow-inner'}`}>
                         {calcInput || '0'}
                     </div>
                     <div className="grid grid-cols-4 gap-2.5">
@@ -598,7 +613,8 @@
                         <button onClick={handleExportExcel} className="flex-1 min-w-[180px] bg-green-600 hover:bg-green-700 text-white px-4 py-4 rounded-3xl font-black text-lg flex items-center justify-center gap-2 shadow-sm transition-transform active:scale-95"><Download className="w-6 h-6" /> EXCEL</button>
                     </div>
 
-                    <div className="flex gap-3 py-2 w-full overflow-x-auto hide-scrollbar flex-nowrap items-center">
+                    {/* BARRA DELLE CATEGORIE CON SCROLLBAR INTELLIGENTE */}
+                    <div className="flex gap-3 py-3 w-full overflow-x-auto custom-scrollbar flex-nowrap items-center">
                       <button onClick={() => setInventoryFilter('Tutti')} className={`px-6 py-3 rounded-full shrink-0 font-black border-2 whitespace-nowrap text-base shadow-sm transition-colors ${inventoryFilter === 'Tutti' ? 'bg-[#3b82f6] text-white border-[#3b82f6]' : (isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200')}`}>TUTTI</button>
                       {categorie.map(c => <button key={c} onClick={() => setInventoryFilter(c)} className={`px-6 py-3 rounded-full shrink-0 font-black border-2 whitespace-nowrap text-base shadow-sm transition-colors ${inventoryFilter === c ? 'bg-[#3b82f6] text-white border-[#3b82f6]' : (isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200')}`}>{c.toUpperCase()}</button>)}
                     </div>
@@ -865,7 +881,8 @@
                      <div className={`p-5 rounded-3xl border-2 flex flex-col gap-4 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
                        <h2 className="text-2xl font-black uppercase text-[#3b82f6]">{lang === 'it' ? 'Uscite Campioni' : 'Sample Outflows'}</h2>
                        
-                       <div className="flex gap-2 w-full overflow-x-auto hide-scrollbar flex-nowrap pb-1">
+                       {/* TASTI SUPERIORI CON SCROLLBAR INTELLIGENTE */}
+                       <div className="flex gap-3 w-full overflow-x-auto custom-scrollbar flex-nowrap pb-3">
                            <button onClick={() => setCurrentView('informatori')} className="shrink-0 flex-1 min-w-[130px] bg-slate-200 dark:bg-slate-700 p-4 rounded-2xl font-black flex items-center justify-center gap-2 shadow-sm"><Users className="w-5 h-5" /> RUBRICA</button>
                            <button onClick={() => setCurrentView('congressi')} className="shrink-0 flex-1 min-w-[130px] bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 p-4 rounded-2xl font-black flex items-center justify-center gap-2 shadow-sm"><MapPin className="w-5 h-5" /> CONGRESSI</button>
                            <button onClick={() => setCurrentView('new')} className="shrink-0 flex-1 min-w-[130px] bg-[#3b82f6] text-white p-4 rounded-2xl font-black flex items-center justify-center gap-2 shadow-md"><Plus className="w-5 h-5" /> NUOVA</button>
@@ -923,7 +940,7 @@
                         <div className="flex justify-between items-center mb-3">
                             <h3 className="font-black text-sm uppercase tracking-widest text-slate-500">Seleziona Prodotti</h3>
                         </div>
-                        <div className="max-h-[35vh] overflow-y-auto border-2 rounded-3xl p-2 hide-scrollbar bg-slate-50 dark:bg-slate-900 shadow-inner">
+                        <div className="max-h-[35vh] overflow-y-auto border-2 rounded-3xl p-2 custom-scrollbar bg-slate-50 dark:bg-slate-900 shadow-inner">
                             {items.filter(i => !i.excludeFromSamples).map(item => (
                                 <div key={item.id} className="flex justify-between items-center p-3 border-b-2 border-slate-100 dark:border-slate-800 last:border-0 hover:bg-white dark:hover:bg-slate-800 rounded-xl transition-colors">
                                     <div className="flex items-center gap-3">
@@ -1149,7 +1166,7 @@
                         <h3 className="text-xl font-black text-emerald-500 uppercase tracking-wide">Lotti e Scadenze</h3>
                         <X onClick={() => setEditingLotsId(null)} className="w-8 h-8 cursor-pointer text-slate-400" />
                       </div>
-                      <div className="p-5 space-y-4 overflow-y-auto flex-1 hide-scrollbar">
+                      <div className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
                         {editLotsData.map((lotto, idx) => (
                           <div key={idx} className="p-4 rounded-2xl border-2 border-slate-300 relative bg-white dark:bg-slate-800">
                             <button onClick={() => { const d = [...editLotsData]; d.splice(idx, 1); setEditLotsData(d); }} className="absolute -top-4 -right-3 bg-red-500 text-white p-2 rounded-full"><Trash2 className="w-5 h-5"/></button>
