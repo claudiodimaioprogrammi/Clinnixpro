@@ -117,6 +117,8 @@
           const [editInfoName, setEditInfoName] = useState('');
           const [editInfoRegion, setEditInfoRegion] = useState('');
 
+          const [itemToDelete, setItemToDelete] = useState(null);
+
           const [showCalc, setShowCalc] = useState(false);
           const [calcInput, setCalcInput] = useState('');
           
@@ -184,7 +186,7 @@
             const base = ['artifacts', appId, 'public', 'data'];
             const unsub = [
               onSnapshot(collection(db, ...base, 'shipments'), s => setShipments(s.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (b.createdAt||0) - (a.createdAt||0)))),
-              onSnapshot(collection(db, ...base, 'items'), s => setItems(s.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (a.name||'').localeCompare(b.name||'')))),
+              onSnapshot(collection(db, ...base, 'items'), s => setItems(s.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => ((a.name||'').localeCompare(b.name||''))))),
               onSnapshot(collection(db, ...base, 'notes'), s => setNotes(s.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (b.createdAt||0) - (a.createdAt||0)))),
               onSnapshot(collection(db, ...base, 'logs'), s => setLogs(s.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (b.date||0) - (a.date||0)))),
               onSnapshot(collection(db, ...base, 'informatori'), s => setInformatori(s.docs.map(d => ({id: d.id, ...d.data()})))),
@@ -194,30 +196,79 @@
           }, [user, isAuthenticated]);
 
           const handleExportExcel = () => {
-              let csvContent = "data:text/csv;charset=utf-8,";
-              csvContent += "Nome Prodotto,Categoria,Giacenza (Pz),Pz per Cartone,Allarme Scorta\n";
-              items.forEach(i => { csvContent += `"${i.name}","${i.category}",${i.stock},${i.cartonSize},${i.alertThreshold}\n`; });
+              let csvContent = "\uFEFF";
+              csvContent += "Nome Prodotto;Categoria;Giacenza (Pz);Conf. Vendibili;In Arrivo;Data Arrivo;Cartoni;Pezzi Sciolti;Allarme Scorta\n";
+              
+              const filteredItems = items.filter(i => (inventoryFilter === 'Tutti' || i.category === inventoryFilter) && (i.name || '').toLowerCase().includes(searchQuery.toLowerCase()));
+              
+              filteredItems.forEach(i => { 
+                  const cSize = parseInt(i.cartonSize) || 10;
+                  const pPack = parseInt(i.piecesPerPack) || 1;
+                  const stock = parseInt(i.stock) || 0;
+                  const calcCartons = Math.floor(stock / cSize);
+                  const calcLoose = stock % cSize;
+
+                  csvContent += `"${i.name||''}";"${i.category||''}";${stock};${Math.floor(stock/pPack)};${i.incoming||0};"${i.incomingDate||''}";${calcCartons};${calcLoose};${i.alertThreshold||0}\n`; 
+              });
+              
+              const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+              const url = URL.createObjectURL(blob);
               const link = document.createElement("a");
-              link.setAttribute("href", encodeURI(csvContent));
-              link.setAttribute("download", `Magazzino_Clinnix_${new Date().toLocaleDateString('it-IT')}.csv`);
-              document.body.appendChild(link); link.click(); document.body.removeChild(link);
+              link.setAttribute("href", url);
+              link.setAttribute("download", `Magazzino_Clinnix_${new Date().toLocaleDateString('it-IT').replace(/\//g, '-')}.csv`);
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              URL.revokeObjectURL(url);
           };
 
           const handleAddNewItem = async () => {
             if (!newInvName.trim()) return;
-            const initialStock = parseInt(newInvQty) || 0;
-            const lots = [];
-            if (newInvLotto.trim() || newInvScadenza.trim()) {
-                lots.push({ id: newInvLotto.trim() || 'L-Nuovo', expiry: newInvScadenza.trim() || '-', qty: initialStock, cartonSize: parseInt(newInvCartonSize) || 10 });
-            }
-            const data = {
-              name: newInvName.trim(), stock: initialStock, cartonSize: parseInt(newInvCartonSize) || 10,
-              piecesPerPack: 1, category: newInvCategory || 'Altro', alertThreshold: parseInt(newInvAlert) || 10, lots: lots,
-              excludeFromSamples: false
-            };
-            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'items'), { ...data, createdAt: Date.now() });
+            const nameToSave = newInvName.trim();
+            const existingItem = items.find(i => (i.name || '').toLowerCase() === nameToSave.toLowerCase());
             
-            addLog(`Rifornimento: ${newInvName} (+${initialStock} pz)`, 'restock');
+            const qtyToAdd = parseInt(newInvQty) || 0;
+            const cartonSizeToSave = parseInt(newInvCartonSize) || 10;
+            
+            let lotToAdd = null;
+            if (newInvLotto.trim() || newInvScadenza.trim() || qtyToAdd > 0) {
+                lotToAdd = { id: newInvLotto.trim() || 'L-Nuovo', expiry: newInvScadenza.trim() || '-', qty: qtyToAdd, cartonSize: cartonSizeToSave };
+            }
+
+            if (existingItem) {
+                let currentStock = parseInt(existingItem.stock) || 0;
+                let newStock = currentStock + qtyToAdd;
+                let newLots = Array.isArray(existingItem.lots) ? [...existingItem.lots] : [];
+                
+                if (qtyToAdd > 0) {
+                    if (newInvLotto.trim() || newInvScadenza.trim()) {
+                        newLots.push(lotToAdd);
+                    } else {
+                        if (newLots.length > 0) {
+                            newLots = updateLotsLogic(newLots, qtyToAdd);
+                        }
+                    }
+                }
+                
+                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'items', existingItem.id), { 
+                    stock: newStock,
+                    lots: newLots
+                });
+                addLog(`Rifornito: ${existingItem.name} (+${qtyToAdd} pz)`, 'restock');
+            } else {
+                const lots = [];
+                if (newInvLotto.trim() || newInvScadenza.trim()) {
+                    lots.push(lotToAdd);
+                }
+                const data = {
+                  name: nameToSave, stock: qtyToAdd, cartonSize: cartonSizeToSave,
+                  piecesPerPack: 1, category: newInvCategory || 'Altro', alertThreshold: parseInt(newInvAlert) || 10, lots: lots,
+                  excludeFromSamples: false
+                };
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'items'), { ...data, createdAt: Date.now() });
+                addLog(`Rifornimento: ${nameToSave} (+${qtyToAdd} pz)`, 'restock');
+            }
+            
             setNewInvName(''); setNewInvQty(''); setNewInvLotto(''); setNewInvScadenza('');
           };
 
@@ -233,7 +284,7 @@
             const newStock = currentStock + actualChange;
             
             await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'items', item.id), { stock: newStock, lots: newLots });
-            addLog(`${item.name}: ${actualChange > 0 ? '+' : ''}${actualChange} pz`, actualChange > 0 ? 'add' : 'remove');
+            addLog(`${item.name || 'Prodotto'}: ${actualChange > 0 ? '+' : ''}${actualChange} pz`, actualChange > 0 ? 'add' : 'remove');
           };
 
           const saveEditedItem = async () => {
@@ -259,11 +310,11 @@
             
             if (existing) {
                 if (updateData.name && updateData.name !== existing.name) {
-                    addLog(`Rinominato: ${existing.name} -> ${updateData.name}`, 'edit');
+                    addLog(`Rinominato: ${existing.name || 'Prodotto'} -> ${updateData.name}`, 'edit');
                 }
                 if (existing.stock !== undefined && newStock !== existing.stock) {
                   if(Array.isArray(existing.lots) && existing.lots.length > 0) updateData.lots = updateLotsLogic(existing.lots, newStock - existing.stock); 
-                  addLog(`Modifica manuale ${updateData.name || existing.name}: a ${newStock} pz`, 'edit');
+                  addLog(`Modifica manuale ${updateData.name || existing.name || 'Prodotto'}: a ${newStock} pz`, 'edit');
                 }
             }
             await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'items', editingItemId), updateData);
@@ -336,7 +387,7 @@
               if(toOrder.length === 0) return;
               
               let msg = lang === 'it' ? `📦 *Ordini ClinnixPro${category === 'Tutto' ? '' : ` - ${category.toUpperCase()}`}* 📦\n\nProdotti da ordinare:\n\n` : `📦 *ClinnixPro Orders${category === 'Tutto' ? '' : ` - ${category.toUpperCase()}`}* 📦\n\nProducts:\n\n`;
-              toOrder.forEach(i => { msg += `🔸 *${i.name}* (Giacenza: ${i.stock} pz)\n`; });
+              toOrder.forEach(i => { msg += `🔸 *${i.name || 'Prodotto'}* (Giacenza: ${i.stock} pz)\n`; });
               window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
               setShowWhatsAppModal(false);
           };
@@ -466,26 +517,16 @@
                     </div>
 
                     <div className="grid grid-cols-1 w-full gap-4 mt-2">
-                      {items.filter(i => (inventoryFilter === 'Tutti' || i.category === inventoryFilter) && i.name.toLowerCase().includes(searchQuery.toLowerCase())).map(item => {
+                      {items.filter(i => (inventoryFilter === 'Tutti' || i.category === inventoryFilter) && (i.name || '').toLowerCase().includes(searchQuery.toLowerCase())).map(item => {
                         const isLow = (parseInt(item.stock)||0) <= (parseInt(item.alertThreshold) || 10);
                         const cSize = parseInt(item.cartonSize) || 10;
                         const pPack = parseInt(item.piecesPerPack) || 1;
                         const stock = parseInt(item.stock) || 0;
                         const confVendibili = Math.floor(stock / pPack);
 
-                        let calcCartons = 0; let calcSingles = 0;
+                        const calcCartons = Math.floor(stock / cSize);
+                        const calcSingles = stock % cSize;
                         const validLots = Array.isArray(item.lots) ? item.lots : [];
-                        if (validLots.length > 0) {
-                            validLots.forEach(l => {
-                                const lQty = parseInt(l.qty) || 0;
-                                const lCart = parseInt(l.cartonSize) || cSize;
-                                calcCartons += Math.floor(lQty / lCart);
-                                calcSingles += lQty % lCart;
-                            });
-                        } else {
-                            calcCartons = Math.floor(stock / cSize);
-                            calcSingles = stock % cSize;
-                        }
                         
                         let stockTextSize = 'text-5xl';
                         if (stock.toString().length > 5) stockTextSize = 'text-2xl';
@@ -508,15 +549,14 @@
                               <div className="relative mt-2"><span className="absolute -top-3 left-2 px-2 text-xs font-black bg-inherit text-orange-500">Allarme Pz</span><input type="number" value={editFormData.alertThreshold} onChange={e => setEditFormData({...editFormData, alertThreshold: e.target.value})} className={`w-full p-4 rounded-xl border-2 text-center font-black text-xl ${isDarkMode ? 'bg-slate-700 text-white border-slate-600' : 'bg-white border-slate-300'}`} /></div>
                               <div className="relative mt-2"><span className="absolute -top-3 left-2 px-2 text-xs font-black bg-inherit text-emerald-600">Pz/Conf</span><input type="number" value={editFormData.piecesPerPack} onChange={e => setEditFormData({...editFormData, piecesPerPack: e.target.value})} className={`w-full p-4 rounded-xl border-2 text-center font-black text-xl border-emerald-300 ${isDarkMode ? 'bg-slate-700 text-white' : 'bg-white'}`} /></div>
                             </div>
-                            <div className="flex gap-2 items-center w-full mt-3 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-2xl border-2 border-orange-200">
-                               <input type="checkbox" checked={editFormData.isToOrder} onChange={e => setEditFormData({...editFormData, isToOrder: e.target.checked})} className="w-6 h-6 flex-shrink-0 accent-orange-600" id={`toord-${item.id}`} />
-                               <label htmlFor={`toord-${item.id}`} className="font-bold text-orange-700 dark:text-orange-400 text-lg">In Lista Ordini</label>
-                            </div>
                             <div className="flex gap-2 items-center w-full mt-2 p-3 bg-slate-50 dark:bg-slate-700/50 rounded-2xl border-2 border-slate-200 dark:border-slate-600">
                                <input type="checkbox" checked={editFormData.excludeFromSamples || false} onChange={e => setEditFormData({...editFormData, excludeFromSamples: e.target.checked})} className="w-6 h-6 flex-shrink-0 accent-blue-600" id={`excl-${item.id}`} />
                                <label htmlFor={`excl-${item.id}`} className="font-bold text-slate-700 dark:text-slate-300 text-lg">Nascondi da "Assegna Campioni"</label>
                             </div>
-                            <button onClick={saveEditedItem} className="w-full bg-[#3b82f6] text-white py-4 rounded-2xl font-black text-xl mt-2 flex items-center justify-center gap-2 shadow-md"><Save className="w-6 h-6"/> {lang === 'it' ? 'SALVA MODIFICHE' : 'SAVE CHANGES'}</button>
+                            <div className="flex gap-2 mt-2 w-full">
+                                <button onClick={saveEditedItem} className="flex-[3] bg-[#3b82f6] text-white py-4 rounded-2xl font-black text-xl flex items-center justify-center gap-2 shadow-md"><Save className="w-6 h-6"/> {lang === 'it' ? 'SALVA' : 'SAVE'}</button>
+                                <button onClick={() => setItemToDelete(item)} className="flex-[1] bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 border border-red-200 dark:border-red-800 py-4 rounded-2xl font-black flex items-center justify-center shadow-md hover:bg-red-200 transition-colors"><Trash2 className="w-6 h-6"/></button>
+                            </div>
                           </div>
                         );
 
@@ -524,8 +564,8 @@
                           <div key={item.id} className={`p-4 md:p-5 rounded-3xl border-2 w-full overflow-hidden flex flex-col md:flex-row gap-4 md:gap-6 shadow-sm relative ${isLow ? 'border-red-400 bg-red-50 dark:bg-red-900/10' : (isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200')}`}>
                             <div className="flex-1 min-w-0 w-full flex flex-col justify-between">
                                 <div>
-                                    <div className="flex justify-between items-start w-full">
-                                      <h3 className={`text-3xl md:text-4xl font-black leading-tight break-words flex-1 pr-2 ${isLow ? 'text-red-900 dark:text-red-100' : 'text-slate-900 dark:text-white'}`}>{item.name}</h3>
+                                    <div className="flex justify-between items-start w-full gap-2 min-w-0">
+                                      <h3 className={`text-3xl md:text-4xl font-black leading-tight flex-1 truncate min-w-0 ${isLow ? 'text-red-900 dark:text-red-100' : 'text-slate-900 dark:text-white'}`} title={item.name}>{(item.name || 'Senza Nome').toUpperCase()}</h3>
                                       <button onClick={() => { setEditingItemId(item.id); setEditFormData({ name: item.name, cartonSize: cSize, piecesPerPack: pPack, totalStock: stock, alertThreshold: item.alertThreshold, isToOrder: item.isToOrder || false, excludeFromSamples: item.excludeFromSamples || false, incoming: item.incoming||0, incomingDate: item.incomingDate||'', orderDate: item.orderDate||'' }); }} className="p-2 md:p-3 bg-slate-100 dark:bg-slate-700 rounded-full flex-shrink-0 hover:bg-blue-100 text-slate-500 hover:text-[#3b82f6] transition-colors"><Pencil className="w-6 h-6 md:w-7 md:h-7"/></button>
                                     </div>
 
@@ -545,11 +585,11 @@
 
                             <div className="w-full md:w-[260px] shrink-0 flex flex-col gap-3 justify-end mt-2 md:mt-0">
                                 <div className="flex items-center justify-between w-full bg-slate-100 dark:bg-slate-900 p-2 md:p-3 rounded-3xl border-2 border-slate-300 dark:border-slate-700 shadow-inner">
-                                    <button onClick={() => handleQuickStock(item, -pPack)} className="shrink-0 p-3 md:p-4 bg-white hover:bg-slate-200 dark:bg-slate-800 rounded-2xl text-red-600 shadow-md active:scale-95 transition-transform"><Minus className="w-8 h-8 font-black"/></button>
+                                    <button onClick={() => handleQuickStock(item, -cSize)} className="shrink-0 p-3 md:p-4 bg-white hover:bg-slate-200 dark:bg-slate-800 rounded-2xl text-red-600 shadow-md active:scale-95 transition-transform"><Minus className="w-8 h-8 font-black"/></button>
                                     <div className="text-center flex flex-col items-center justify-center flex-1 min-w-0 px-2 overflow-hidden">
                                        <span className={`${stockTextSize} font-black text-slate-900 dark:text-white leading-none truncate w-full transition-all`}>{stock}</span>
                                     </div>
-                                    <button onClick={() => handleQuickStock(item, pPack)} className="shrink-0 p-3 md:p-4 bg-white hover:bg-slate-200 dark:bg-slate-800 rounded-2xl text-green-600 shadow-md active:scale-95 transition-transform"><Plus className="w-8 h-8 font-black"/></button>
+                                    <button onClick={() => handleQuickStock(item, cSize)} className="shrink-0 p-3 md:p-4 bg-white hover:bg-slate-200 dark:bg-slate-800 rounded-2xl text-green-600 shadow-md active:scale-95 transition-transform"><Plus className="w-8 h-8 font-black"/></button>
                                 </div>
 
                                 {validLots.length > 0 && (
@@ -565,10 +605,9 @@
 
                                 <div className="flex gap-2 w-full mt-1">
                                     <button onClick={() => { setEditingLotsId(item.id); setEditLotsData(Array.isArray(item.lots) ? item.lots : []); }} className="flex-[2] bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/30 border-2 border-emerald-300 text-emerald-700 font-black text-lg py-4 rounded-2xl shadow-sm flex items-center justify-center gap-2"><Layers className="w-6 h-6"/> LOTTI</button>
-                                    <button onClick={() => { 
-                                         setEditingItemId(item.id); 
-                                         setEditFormData({ name: item.name, cartonSize: cSize, piecesPerPack: pPack, totalStock: stock, alertThreshold: item.alertThreshold, isToOrder: true, incoming: item.incoming||0, incomingDate: item.incomingDate||'', orderDate: item.orderDate||'' }); 
-                                     }} className={`flex-1 flex items-center justify-center border-2 rounded-2xl font-black shadow-sm transition-colors ${item.isToOrder ? 'bg-orange-100 border-orange-300 text-orange-700' : 'bg-slate-100 border-slate-300 text-slate-600 hover:bg-orange-50'}`}>
+                                    <button 
+                                        onClick={async () => await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'items', item.id), { isToOrder: !item.isToOrder })} 
+                                        className={`flex-1 flex items-center justify-center border-2 rounded-2xl font-black shadow-sm transition-colors ${item.isToOrder ? 'bg-orange-100 border-orange-300 text-orange-700' : 'bg-slate-100 border-slate-300 text-slate-600 hover:bg-orange-50'}`}>
                                         <ShoppingCart className="w-7 h-7"/>
                                     </button>
                                 </div>
@@ -581,7 +620,6 @@
                 )}
 
                 {/* --- ORDINI --- */}
-                {}
                 {currentView === 'ordini' && (
                   <div className="space-y-6 w-full">
                      <div className={`p-5 rounded-3xl border-2 flex mobile-stack justify-between items-center gap-4 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
@@ -596,11 +634,10 @@
                         {items.filter(i => i.isToOrder).map(item => {
                            const isOrdered = (parseInt(item.incoming) || 0) > 0 || item.orderDate;
                            
-                           // SCHEDA EDITING ORDINE CON CAMPI CHIARI
                            if (editingItemId === item.id) return (
                                <div key={item.id} className="p-5 rounded-3xl border-2 border-[#3b82f6] space-y-3 bg-white dark:bg-slate-800 shadow-sm">
                                    <div className="flex justify-between items-center">
-                                       <span className="font-bold text-xl">Registra Ordine: {item.name}</span>
+                                       <span className="font-bold text-xl">Registra Ordine: {item.name || 'Prodotto'}</span>
                                        <X onClick={() => setEditingItemId(null)} className="cursor-pointer w-7 h-7 hover:text-red-500" />
                                    </div>
                                    <div className="grid grid-cols-1 gap-2 mt-2">
@@ -617,7 +654,7 @@
                            return (
                              <div key={item.id} className={`p-4 rounded-3xl border-2 shadow-sm flex flex-col sm:flex-row sm:items-start justify-between gap-4 ${isOrdered ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'bg-white dark:bg-slate-800'}`}>
                                 <div className="flex-1 min-w-0">
-                                    <h4 className="font-black text-xl leading-tight truncate">{item.name}</h4>
+                                    <h4 className="font-black text-xl leading-tight truncate" title={item.name}>{item.name || 'Prodotto'}</h4>
                                     <p className="font-bold text-red-500 mt-1">Giacenza: {item.stock} pz</p>
                                     
                                     {isOrdered && (
@@ -693,7 +730,6 @@
                 )}
 
                 {/* --- CAMPIONI DASHBOARD --- */}
-                {}
                 {currentView === 'dashboard' && (
                   <div className="space-y-4 w-full">
                      <div className={`p-5 rounded-3xl border-2 flex flex-col gap-4 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
@@ -712,7 +748,7 @@
                             <div className="flex flex-wrap items-center gap-2 mb-2 w-full">
                                 <span className={`text-[10px] font-black uppercase px-2 py-1 rounded border flex-shrink-0 ${s.destType === 'congresso' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>{s.destType === 'congresso' ? 'CONGRESSO' : 'INFORMATORE'}</span>
                             </div>
-                            <h3 className="font-black text-2xl text-[#3b82f6] truncate">{s.destination} <span className="text-slate-400 text-lg">({s.region})</span></h3>
+                            <h3 className="font-black text-2xl text-[#3b82f6] truncate" title={s.destination}>{s.destination} <span className="text-slate-400 text-lg">({s.region})</span></h3>
                             <p className="font-bold text-slate-500 text-sm mt-1">{new Date(s.createdAt).toLocaleString('it-IT')}</p>
                          </div>
                          <div className="flex gap-3">
@@ -743,7 +779,7 @@
                             <input list="dest-list" type="text" value={newDest} onChange={e => { 
                                 const val = e.target.value; setNewDest(val); 
                                 const list = destType === 'informatore' ? informatori : congressi;
-                                const info = list.find(i => (i.name||'').toLowerCase() === val.toLowerCase()); 
+                                const info = list.find(i => (i.name||'').toLowerCase() === (val||'').toLowerCase()); 
                                 if(info && info.region) setNewRegion(info.region); 
                             }} placeholder={destType === 'informatore' ? 'Nome Informatore' : 'Nome Congresso'} className={`w-full p-4 rounded-2xl border-2 text-lg font-bold shadow-sm ${destType === 'congresso' ? 'border-emerald-400 dark:bg-slate-700' : 'border-blue-400 dark:bg-slate-700'}`} />
                             <datalist id="dest-list">{(destType === 'informatore' ? informatori : congressi).map(i => <option key={i.id} value={i.name} />)}</datalist>
@@ -763,8 +799,8 @@
                                     <div className="flex items-center gap-3">
                                         <button onClick={async () => await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'items', item.id), { excludeFromSamples: true })} className="text-slate-400 p-2 hover:text-red-500"><EyeOff className="w-5 h-5"/></button>
                                         <div className="flex flex-col">
-                                            <span className="font-black text-lg">{item.name}</span>
-                                            <span className="text-[10px] uppercase font-bold opacity-50">{item.category}</span>
+                                            <span className="font-black text-lg">{item.name || 'Prodotto'}</span>
+                                            <span className="text-[10px] uppercase font-bold opacity-50">{item.category || 'Altro'}</span>
                                         </div>
                                     </div>
                                     <input type="number" placeholder="0" value={sampleQuantities[item.name] || ''} onChange={e => setSampleQuantities({...sampleQuantities, [item.name]: e.target.value})} className="w-20 p-3 rounded-xl border-2 text-center font-black text-xl bg-white dark:bg-slate-800 outline-none" />
@@ -790,8 +826,7 @@
                   </div>
                 )}
 
-                {/* --- RUBRICA INFORMATORI (PULITA) --- */}
-                {}
+                {/* --- RUBRICA INFORMATORI (PULITA E RIPRISTINATA) --- */}
                 {currentView === 'informatori' && (
                   <div className="space-y-4 w-full">
                      <div className={`p-5 rounded-3xl border-2 w-full shadow-sm ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
@@ -800,7 +835,7 @@
                        <div className="relative mb-5 mt-4 w-full min-w-0"><Search className="absolute left-4 top-4 w-6 h-6 opacity-40 text-slate-900 dark:text-white" /><input type="text" placeholder="Cerca nome..." value={searchInfoQuery} onChange={e => setSearchInfoQuery(e.target.value)} className="w-full pl-12 p-4 rounded-2xl border-2 font-bold outline-none text-lg bg-inherit" /></div>
                        
                        <div className="grid gap-4 w-full">
-                         {informatori.filter(i => (i.name||'').toLowerCase().includes(searchInfoQuery.toLowerCase()) || (i.region||'').toLowerCase().includes(searchInfoQuery.toLowerCase())).map(info => {
+                         {informatori.filter(i => ((i.name||'').toLowerCase().includes(searchInfoQuery.toLowerCase()) || (i.region||'').toLowerCase().includes(searchInfoQuery.toLowerCase()))).map(info => {
                            if (editingInfoId === info.id) return (
                                <div key={info.id} className="p-5 rounded-2xl border-2 border-blue-500 shadow-md w-full bg-slate-50 dark:bg-slate-900">
                                   <div className="flex flex-col gap-3 w-full">
@@ -816,11 +851,11 @@
                            return (
                              <div key={info.id} className="p-5 rounded-2xl border-2 w-full flex flex-col md:flex-row justify-between md:items-center shadow-sm bg-slate-50 dark:bg-slate-900 transition-all duration-300">
                                <div className="flex-1 min-w-0 w-full mb-3 md:mb-0">
-                                 <div className="flex items-center gap-3 w-full">
-                                    <h3 className="text-2xl font-black break-words">{info.name}</h3>
+                                 <div className="flex items-center gap-3 w-full min-w-0">
+                                    <h3 className="text-2xl font-black truncate flex-1 min-w-0" title={info.name}>{info.name || 'Senza Nome'}</h3>
                                     <Pencil className="w-6 h-6 shrink-0 text-slate-400 cursor-pointer hover:text-blue-500" onClick={()=>{ setEditingInfoId(info.id); setEditInfoName(info.name); setEditInfoRegion(info.region||''); }} />
                                  </div>
-                                 <p className="text-[#3b82f6] font-bold text-xl mt-1">{info.region || 'Nessuna regione'}</p>
+                                 <p className="text-[#3b82f6] font-bold text-xl mt-1 truncate" title={info.region}>{info.region || 'Nessuna regione'}</p>
                                </div>
                                <div className="flex gap-2">
                                    <button onClick={() => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'informatori', info.id))} className="p-4 shrink-0 text-red-600 border border-red-200 bg-red-50 dark:bg-red-900/20 rounded-xl"><Trash2 className="w-7 h-7" /></button>
@@ -836,7 +871,7 @@
                   </div>
                 )}
 
-                {/* --- RUBRICA CONGRESSI (PULITA) --- */}
+                {/* --- RUBRICA CONGRESSI (PULITA E RIPRISTINATA) --- */}
                 {currentView === 'congressi' && (
                   <div className="space-y-4 w-full">
                      <div className={`p-5 rounded-3xl border-2 w-full shadow-sm ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
@@ -845,7 +880,7 @@
                        <div className="relative mb-5 mt-4 w-full min-w-0"><Search className="absolute left-4 top-4 w-6 h-6 opacity-40 text-slate-900 dark:text-white" /><input type="text" placeholder="Cerca congresso..." value={searchInfoQuery} onChange={e => setSearchInfoQuery(e.target.value)} className="w-full pl-12 p-4 rounded-2xl border-2 font-bold outline-none text-lg bg-inherit focus:border-emerald-500" /></div>
                        
                        <div className="grid gap-4 w-full">
-                         {congressi.filter(i => (i.name||'').toLowerCase().includes(searchInfoQuery.toLowerCase()) || (i.region||'').toLowerCase().includes(searchInfoQuery.toLowerCase())).map(info => {
+                         {congressi.filter(i => ((i.name||'').toLowerCase().includes(searchInfoQuery.toLowerCase()) || (i.region||'').toLowerCase().includes(searchInfoQuery.toLowerCase()))).map(info => {
                            if (editingInfoId === info.id) return (
                                <div key={info.id} className="p-5 rounded-2xl border-2 border-emerald-500 shadow-md w-full bg-slate-50 dark:bg-slate-900">
                                   <div className="flex flex-col gap-3 w-full">
@@ -861,11 +896,11 @@
                            return (
                              <div key={info.id} className="p-5 rounded-2xl border-2 w-full flex flex-col md:flex-row justify-between md:items-center shadow-sm bg-slate-50 dark:bg-slate-900 transition-all duration-300">
                                <div className="flex-1 min-w-0 w-full mb-3 md:mb-0">
-                                 <div className="flex items-center gap-3 w-full">
-                                    <h3 className="text-2xl font-black break-words text-slate-900 dark:text-white">{info.name}</h3>
+                                 <div className="flex items-center gap-3 w-full min-w-0">
+                                    <h3 className="text-2xl font-black truncate flex-1 min-w-0 text-slate-900 dark:text-white" title={info.name}>{info.name || 'Senza Nome'}</h3>
                                     <Pencil className="w-6 h-6 shrink-0 text-slate-400 cursor-pointer hover:text-emerald-500" onClick={()=>{ setEditingInfoId(info.id); setEditInfoName(info.name); setEditInfoRegion(info.region||''); }} />
                                  </div>
-                                 <p className="text-emerald-600 font-bold text-xl mt-1 flex items-center gap-1.5"><MapPin className="w-5 h-5"/> {info.region || 'Luogo non specificato'}</p>
+                                 <p className="text-emerald-600 font-bold text-xl mt-1 flex items-center gap-1.5 truncate" title={info.region}><MapPin className="w-5 h-5 flex-shrink-0"/> {info.region || 'Luogo non specificato'}</p>
                                </div>
                                <div className="flex gap-2">
                                    <button onClick={() => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'congressi', info.id))} className="p-4 shrink-0 text-red-600 border border-red-200 bg-red-50 dark:bg-red-900/20 rounded-xl"><Trash2 className="w-7 h-7" /></button>
@@ -883,7 +918,6 @@
                 )}
 
                 {/* --- PAGINA DETTAGLI STORICO (SEPARATA CON TENDINA) --- */}
-                {}
                 {currentView === 'repDetails' && (() => {
                   const entityShipments = shipments.filter(s => s.destination === activeEntityName);
                   return (
@@ -891,7 +925,7 @@
                         <button onClick={() => setCurrentView(backView)} className="flex items-center gap-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 font-black text-sm mb-6 uppercase transition-colors"><ArrowLeft className="w-5 h-5" /> Indietro</button>
                         
                         <div className="mb-8 border-b-2 border-slate-100 dark:border-slate-700 pb-6">
-                            <h2 className="text-4xl font-black text-slate-900 dark:text-white leading-tight mb-2">{activeEntityName}</h2>
+                            <h2 className="text-4xl font-black text-slate-900 dark:text-white leading-tight mb-2 break-words">{activeEntityName}</h2>
                             <p className="text-[#3b82f6] font-bold text-xl">{activeEntityRegion || 'Nessuna regione specificata'}</p>
                         </div>
                         
@@ -939,7 +973,6 @@
                 })()}
 
                 {/* --- NOTE --- */}
-                {}
                 {currentView === 'notes' && (
                   <div className="space-y-4 w-full animate-fade-in">
                      <div className={`p-5 rounded-3xl border-2 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
@@ -1043,6 +1076,25 @@
                 )}
 
               </main>
+
+              {/* MODAL: ELIMINA PRODOTTO */}
+              {itemToDelete && (
+                  <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6">
+                      <div className="bg-white dark:bg-slate-800 p-8 rounded-[40px] border-4 border-red-500 shadow-2xl text-center space-y-6 max-w-sm w-full animate-fade-in">
+                          <div className="flex justify-center"><AlertTriangle className="w-20 h-20 text-red-500 animate-pulse"/></div>
+                          <h3 className="text-3xl font-black text-slate-900 dark:text-white">Elimina Prodotto</h3>
+                          <p className="text-lg font-bold opacity-70 text-slate-900 dark:text-white">Vuoi davvero eliminare definitivamente "{itemToDelete.name}"? L'operazione non è reversibile.</p>
+                          <div className="flex flex-col gap-3">
+                              <button onClick={async () => {
+                                  await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'items', itemToDelete.id));
+                                  setItemToDelete(null);
+                                  setEditingItemId(null);
+                              }} className="w-full bg-red-600 text-white py-5 rounded-2xl font-black text-xl shadow-md uppercase">Sì, Elimina</button>
+                              <button onClick={() => setItemToDelete(null)} className="w-full bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white py-4 rounded-2xl font-black text-lg uppercase">Annulla</button>
+                          </div>
+                      </div>
+                  </div>
+              )}
 
               {/* MODAL: PULISCI STORICO */}
               {showClearLogsModal && (
