@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClinnixPro | Print Station</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: '#002d5a',
+                        secondary: '#007bff',
+                        accent: '#20c997',
+                        bg: '#f4f7fa',
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- JsBarcode -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Configurazione Firebase ClinnixPro
+        const firebaseConfig = {
+            apiKey: "AIzaSyC87guNYohB7qgoWLxeuKHTaRJgDrEeZtw",
+            authDomain: "clinnixpro.firebaseapp.com",
+            projectId: "clinnixpro",
+            storageBucket: "clinnixpro.firebasestorage.app",
+            messagingSenderId: "292920536492",
+            appId: "1:292920536492:web:4883961a12a203e634de09"
+        };
+
+        const MASTER_ID = "clinnix-pro-v1";
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Prodotti locali di test per consentire l'utilizzo immediato anche offline o in sandbox
+        const mockLotti = [
+            {
+                id: "mock1",
+                name: "CLINNIX SOLUZIONE FISIOLOGICA 500ML",
+                lots: [
+                    { id: "LOT-9921", lotto: "LOT-9921", expiry: "12/28" },
+                    { id: "LOT-9922", lotto: "LOT-9922", expiry: "06/29" }
+                ]
+            },
+            {
+                id: "mock2",
+                name: "GARZA IDROFILA CLINNIXPRO 10X10",
+                lots: [
+                    { id: "LOT-4480", lotto: "LOT-4480", expiry: "03/27" }
+                ]
+            },
+            {
+                id: "mock3",
+                name: "SIRINGHE STERILI CLINNIX 5ML",
+                lots: [
+                    { id: "LOT-1102", lotto: "LOT-1102", expiry: "09/28" }
+                ]
+            }
+        ];
+
+        // Destinatari locali di test per la rubrica corriere
+        const mockRubrica = [
+            {
+                id: "mock-rub1",
+                nome: "FARMACIA SAN GENNARO",
+                name: "FARMACIA SAN GENNARO",
+                indirizzo: "VIA DUOMO 145",
+                address: "VIA DUOMO 145",
+                cap: "80138",
+                zip: "80138",
+                citta: "NAPOLI",
+                city: "NAPOLI",
+                prov: "NA",
+                province: "NA",
+                telefono: "081 293847",
+                note: "Consegnare solo di mattina entro le 12:00"
+            },
+            {
+                id: "mock-rub2",
+                nome: "STUDIO MEDICO DR. ROSSI",
+                name: "STUDIO MEDICO DR. ROSSI",
+                indirizzo: "CORSO UMBERTO I, 42",
+                address: "CORSO UMBERTO I, 42",
+                cap: "80138",
+                zip: "80138",
+                citta: "NAPOLI",
+                city: "NAPOLI",
+                prov: "NA",
+                province: "NA",
+                telefono: "333 4567890",
+                note: "Citofonare interno 4 piano secondo"
+            }
+        ];
+
+        // Gestione del PIN dinamico per sblocco automatico bidirezionale senza password
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlPin = urlParams.get('pin');
+        if (urlPin) {
+            sessionStorage.setItem('clinnix_session_pin', urlPin);
+        }
+        const sessionPin = sessionStorage.getItem('clinnix_session_pin') || '12345';
+
+        // Assicuriamoci che il DOM sia completamente pronto prima di manipolare il pulsante
+        document.addEventListener('DOMContentLoaded', () => {
+            const backBtn = document.getElementById('btn-back-to-app');
+            if (backBtn) {
+                const defaultRel = `index.html?pin=${sessionPin}`;
+                let targetUrl = defaultRel;
+
+                // Determina se l'ambiente di esecuzione ha un'origine valida e sicura per i percorsi relativi
+                const hasValidBase = window.location.href && 
+                                     !window.location.href.startsWith('about:') && 
+                                     !window.location.href.startsWith('data:') && 
+                                     !window.location.href.startsWith('blob:') && 
+                                     window.location.href !== 'null' && 
+                                     window.location.href !== '';
+
+                // Tenta di risolvere l'URL in modo assoluto e sicuro
+                if (hasValidBase) {
+                    try {
+                        targetUrl = new URL(defaultRel, window.location.href).href;
+                    } catch (e) {
+                        targetUrl = defaultRel;
+                    }
+                } else if (document.referrer && document.referrer.startsWith('http')) {
+                    // Negli iframe sandboxed di anteprima, il referrer contiene l'host reale della pagina web principale
+                    try {
+                        targetUrl = new URL(defaultRel, document.referrer).href;
+                    } catch (e) {
+                        targetUrl = defaultRel;
+                    }
+                }
+
+                // Assegna in modo sicuro l'href al bottone
+                backBtn.href = targetUrl || defaultRel;
+                
+                // Gestione click con prevenzione dei crash legati alla sandbox
+                backBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const urlToNavigate = targetUrl || defaultRel;
+
+                    if (!urlToNavigate || urlToNavigate === '""' || urlToNavigate === '') {
+                        if (window.showStatus) {
+                            window.showStatus("Link di ritorno non valido.");
+                        }
+                        return;
+                    }
+
+                    const isRelative = !urlToNavigate.startsWith('http://') && 
+                                       !urlToNavigate.startsWith('https://') && 
+                                       !urlToNavigate.startsWith('file://');
+
+                    // Se l'URL è relativo e non abbiamo una base di navigazione valida (es. anteprima Canvas),
+                    // blocchiamo la navigazione fisica per impedire il SyntaxError nativo del browser
+                    if (isRelative && !hasValidBase) {
+                        if (window.showStatus) {
+                            window.showStatus("Passaggio simulato: Torna a index.html (PIN: " + sessionPin + ")");
+                        }
+                        return;
+                    }
+
+                    try {
+                        // Navigazione protetta tra iframe e finestra principale
+                        if (window.self !== window.top) {
+                            try {
+                                window.top.location.href = urlToNavigate;
+                            } catch (sandboxError) {
+                                // Fallback locale se bloccati dalla sandbox
+                                window.location.href = urlToNavigate;
+                            }
+                        } else {
+                            window.location.href = urlToNavigate;
+                        }
+                    } catch (err) {
+                        console.error("Errore durante il reindirizzamento:", err);
+                        // Fallback definitivo e protetto da ulteriori eccezioni
+                        if (!isRelative) {
+                            try {
+                                window.location.href = urlToNavigate;
+                            } catch (finalErr) {
+                                console.warn("Navigazione fallita del tutto:", finalErr);
+                            }
+                        } else {
+                            if (window.showStatus) {
+                                window.showStatus("Navigazione bloccata dalle impostazioni del browser.");
+                            }
+                        }
+                    }
+                });
+            }
+        });
+
+        // Carichiamo subito i dati mock di fallback per garantire istantaneamente la funzionalità dell'app
+        window.lottiCloud = mockLotti;
+        window.rubricaCloud = mockRubrica;
+        window.selectedContactId = null;
+        window.editingContactId = null;
+        let unsubLotti = null;
+        let unsubRubrica = null;
+
+        // Funzione per mostrare lo stato (Notifiche a comparsa)
+        window.showStatus = (msg) => {
+            const el = document.getElementById('cloud-status');
+            if(!el) return;
+            el.innerText = msg;
+            el.classList.remove('opacity-0');
+            setTimeout(() => el.classList.add('opacity-0'), 3000);
+        };
+
+        // Badge Sincronizzazione
+        window.updateSync = (status) => {
+            const b = document.getElementById('sync-badge');
+            if(!b) return;
+            if(status === 'on') {
+                b.innerHTML = '<span class="flex items-center gap-1.5"><span class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span> ONLINE</span>';
+                b.className = "bg-emerald-500/10 text-emerald-400 text-[10px] px-3 py-1 rounded-full font-bold border border-emerald-500/20";
+            } else {
+                b.innerHTML = '<span class="flex items-center gap-1.5"><i class="fa-solid fa-circle-notch fa-spin"></i> SYNC...</span>';
+                b.className = "bg-white/5 text-white/30 text-[10px] px-3 py-1 rounded-full font-bold border border-white/10";
+            }
+        };
+
+        // Popolamento Lotti (Foto 23)
+        window.popolaLotti = (data) => {
+            const select = document.getElementById('select-lotti');
+            if (!select) return;
+            select.innerHTML = '<option value="">-- Seleziona Prodotto --</option>';
+            
+            let list = [];
+            data.forEach(item => {
+                const name = item.name || item.nome || 'Prodotto';
+                if (item.lots && Array.isArray(item.lots)) {
+                    item.lots.forEach((l, i) => {
+                        let id = l.lotto || l.lot || l.id || '';
+                        const exp = l.expiry || l.scadenza || '';
+                        // Fix Timestamp (es. Uomo)
+                        if (!isNaN(id) && id.toString().length >= 13) id = "LOT-" + id.toString().slice(-4);
+                        if (id && exp) list.push({ name, lot: id, exp, key: `${item.id}_${i}` });
+                    });
+                }
+            });
+
+            list.sort((a,b) => a.name.localeCompare(b.name)).forEach(o => {
+                const opt = document.createElement('option');
+                opt.value = o.key;
+                opt.setAttribute('data-n', o.name);
+                opt.setAttribute('data-l', o.lot);
+                opt.setAttribute('data-e', o.exp);
+                opt.textContent = `${o.name} (Lot: ${o.lot})`;
+                select.appendChild(opt);
+            });
+        };
+
+        window.popolaRubrica = (data) => {
+            const select = document.getElementById('select-rubrica');
+            if (!select) return;
+            select.innerHTML = '<option value="">-- Seleziona Destinatario --</option>';
+            data.sort((a,b) => (a.nome || a.name || '').localeCompare(b.nome || b.name || '')).forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d.id;
+                opt.textContent = `${d.nome || d.name || 'Cliente'} (${d.citta || ''})`;
+                select.appendChild(opt);
+            });
+        };
+
+        // Popoliamo subito i controlli con i dati locali all'avvio
+        window.popolaLotti(window.lottiCloud);
+        window.popolaRubrica(window.rubricaCloud);
+
+        // GESTIONE RUBRICA E NAVIGAZIONE
+        window.openTab = (t) => {
+            document.getElementById('dash-main').classList.add('hidden');
+            document.getElementById('tab-lotti').classList.add('hidden');
+            document.getElementById('tab-corriere').classList.add('hidden');
+            document.getElementById(`tab-${t}`).classList.remove('hidden');
+            
+            if (t === 'corriere') {
+                window.showCorriereSubTab('spedizione');
+            }
+        };
+
+        window.goHome = () => {
+            document.getElementById('dash-main').classList.remove('hidden');
+            document.getElementById('tab-lotti').classList.add('hidden');
+            document.getElementById('tab-corriere').classList.add('hidden');
+        };
+
+        window.closePreview = () => {
+            document.body.classList.remove('mode-preview', 'show-lotti', 'show-corriere');
+        };
+
+        window.syncFields = () => {
+            const s = document.getElementById('select-lotti');
+            const o = s.options[s.selectedIndex];
+            if(o && o.value) {
+                document.getElementById('i-p').value = o.getAttribute('data-n') || '';
+                document.getElementById('i-l').value = o.getAttribute('data-l') || '';
+                document.getElementById('i-e').value = o.getAttribute('data-e') || '';
+            }
+        };
+
+        // NAV SUB-TABS CORRIERE
+        window.showCorriereSubTab = (sub) => {
+            document.getElementById('sub-tab-spedizione').classList.add('hidden');
+            document.getElementById('sub-tab-gestione').classList.add('hidden');
+            document.getElementById(`sub-tab-${sub}`).classList.remove('hidden');
+
+            const btnSped = document.getElementById('btn-sub-sped');
+            const btnGest = document.getElementById('btn-sub-gest');
+            if(sub === 'spedizione') {
+                btnSped.className = "px-4 py-3 text-xs font-black border-b-2 border-secondary text-secondary transition-all";
+                btnGest.className = "px-4 py-3 text-xs font-black border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all";
+            } else {
+                btnGest.className = "px-4 py-3 text-xs font-black border-b-2 border-secondary text-secondary transition-all";
+                btnSped.className = "px-4 py-3 text-xs font-black border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all";
+                window.renderRubricaList();
+                window.annullaModifica(); // Nasconde l'editor se era aperto
+            }
+        };
+
+        // Caricamento Dati del Destinatario dal menu a tendina
+        window.syncRubrica = () => {
+            const id = document.getElementById('select-rubrica').value;
+            const d = window.rubricaCloud.find(x => x.id === id);
+            const btnUpdate = document.getElementById('btn-update-from-sped');
+            if(d) {
+                window.selectedContactId = id;
+                if(btnUpdate) {
+                    btnUpdate.classList.remove('opacity-50', 'cursor-not-allowed');
+                    btnUpdate.disabled = false;
+                }
+                document.getElementById('c-n').value = d.nome || d.name || '';
+                document.getElementById('c-i').value = d.indirizzo || d.address || '';
+                document.getElementById('c-c').value = d.cap || d.zip || '';
+                document.getElementById('c-t').value = d.citta || d.city || '';
+                document.getElementById('c-r').value = d.prov || d.province || '';
+                document.getElementById('c-tel').value = d.telefono || d.phone || '';
+                document.getElementById('c-note').value = d.note || d.notes || '';
+            } else {
+                window.selectedContactId = null;
+                if(btnUpdate) {
+                    btnUpdate.classList.add('opacity-50', 'cursor-not-allowed');
+                    btnUpdate.disabled = true;
+                }
+            }
+        };
+
+        // GESTIONE RUBRICA (CRUD CONTATTI)
+        window.renderRubricaList = (filterText = '') => {
+            const container = document.getElementById('rubrica-list-container');
+            if(!container) return;
+            container.innerHTML = '';
+
+            const filtered = window.rubricaCloud.filter(c => {
+                const searchStr = `${c.nome || c.name || ''} ${c.citta || c.city || ''} ${c.telefono || c.phone || ''}`.toLowerCase();
+                return searchStr.includes(filterText.toLowerCase());
+            });
+
+            if(filtered.length === 0) {
+                container.innerHTML = '<div class="text-center py-8 text-slate-400 text-xs font-bold uppercase tracking-wider">Nessun cliente in archivio</div>';
+                return;
+            }
+
+            filtered.forEach(c => {
+                const id = c.id;
+                const nome = c.nome || c.name || 'Senza Nome';
+                const ind = c.indirizzo || c.address || '-';
+                const cap = c.cap || c.zip || '';
+                const citta = c.citta || c.city || '';
+                const prov = c.prov || c.province || '';
+                const tel = c.telefono || c.phone || '';
+                const note = c.note || c.notes || '';
+
+                const card = document.createElement('div');
+                card.className = "bg-slate-50 border border-slate-100 rounded-2xl p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:shadow-md transition-all";
+                card.innerHTML = `
+                    <div class="flex-grow space-y-1 text-left">
+                        <div class="font-bold text-slate-800 uppercase text-xs">${nome}</div>
+                        <div class="text-[10px] text-slate-500"><i class="fa-solid fa-location-dot mr-1"></i> ${ind}, ${cap} ${citta} (${prov})</div>
+                        ${tel ? `<div class="text-[10px] text-slate-600 font-bold"><i class="fa-solid fa-phone mr-1"></i> Tel: ${tel}</div>` : ''}
+                        ${note ? `<div class="text-[9px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded inline-block mt-1 font-semibold"><i class="fa-solid fa-bell mr-1"></i> ${note}</div>` : ''}
+                    </div>
+                    <div class="flex gap-2 w-full md:w-auto justify-end">
+                        <button onclick="window.usaContatto('${id}')" class="bg-emerald-500 hover:bg-emerald-600 text-white text-[9px] font-black px-3 py-2 rounded-xl flex items-center gap-1 uppercase tracking-wide transition-all" title="Spedisci">
+                            <i class="fa-solid fa-truck"></i> Usa
+                        </button>
+                        <button onclick="window.avviaModificaContatto('${id}')" class="bg-blue-500 hover:bg-blue-600 text-white text-[9px] font-black px-3 py-2 rounded-xl flex items-center gap-1 uppercase tracking-wide transition-all" title="Modifica">
+                            <i class="fa-solid fa-pen"></i> Modifica
+                        </button>
+                        <button onclick="window.richiediEliminaContatto('${id}')" class="bg-rose-500 hover:bg-rose-600 text-white text-[9px] font-black px-3 py-2 rounded-xl flex items-center gap-1 uppercase tracking-wide transition-all" title="Elimina">
+                            <i class="fa-solid fa-trash"></i> Elimina
+                        </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        };
+
+        window.usaContatto = (id) => {
+            const d = window.rubricaCloud.find(x => x.id === id);
+            if(d) {
+                window.selectedContactId = id;
+                document.getElementById('select-rubrica').value = id;
+                document.getElementById('c-n').value = d.nome || d.name || '';
+                document.getElementById('c-i').value = d.indirizzo || d.address || '';
+                document.getElementById('c-c').value = d.cap || d.zip || '';
+                document.getElementById('c-t').value = d.citta || d.city || '';
+                document.getElementById('c-r').value = d.prov || d.province || '';
+                document.getElementById('c-tel').value = d.telefono || d.phone || '';
+                document.getElementById('c-note').value = d.note || d.notes || '';
+                
+                const btnUpdate = document.getElementById('btn-update-from-sped');
+                if(btnUpdate) {
+                    btnUpdate.classList.remove('opacity-50', 'cursor-not-allowed');
+                    btnUpdate.disabled = false;
+                }
+                
+                window.showStatus("Cliente pronto per la spedizione!");
+                window.showCorriereSubTab('spedizione');
+            }
+        };
+
+        window.avviaNuovoContatto = () => {
+            window.editingContactId = null;
+            document.getElementById('rubrica-form-title').innerText = "Aggiungi Nuovo Contatto";
+            
+            document.getElementById('m-nome').value = '';
+            document.getElementById('m-tel').value = '';
+            document.getElementById('m-ind').value = '';
+            document.getElementById('m-cap').value = '';
+            document.getElementById('m-citta').value = '';
+            document.getElementById('m-prov').value = '';
+            document.getElementById('m-note').value = '';
+
+            document.getElementById('rubrica-form-box').classList.remove('hidden');
+        };
+
+        window.avviaModificaContatto = (id) => {
+            window.editingContactId = id;
+            document.getElementById('rubrica-form-title').innerText = "Modifica Contatto Rubrica";
+            const d = window.rubricaCloud.find(x => x.id === id);
+            if(d) {
+                document.getElementById('m-nome').value = d.nome || d.name || '';
+                document.getElementById('m-tel').value = d.telefono || d.phone || '';
+                document.getElementById('m-ind').value = d.indirizzo || d.address || '';
+                document.getElementById('m-cap').value = d.cap || d.zip || '';
+                document.getElementById('m-citta').value = d.citta || d.city || '';
+                document.getElementById('m-prov').value = d.prov || d.province || '';
+                document.getElementById('m-note').value = d.note || d.notes || '';
+
+                document.getElementById('rubrica-form-box').classList.remove('hidden');
+                document.getElementById('rubrica-form-box').scrollIntoView({ behavior: 'smooth' });
+            }
+        };
+
+        window.annullaModifica = () => {
+            document.getElementById('rubrica-form-box').classList.add('hidden');
+            window.editingContactId = null;
+        };
+
+        // Salva/Modifica contatto dalla tab Gestione Rubrica
+        window.salvaContatto = async () => {
+            const nome = document.getElementById('m-nome').value.trim();
+            const tel = document.getElementById('m-tel').value.trim();
+            const ind = document.getElementById('m-ind').value.trim();
+            const textCap = document.getElementById('m-cap').value.trim();
+            const citta = document.getElementById('m-citta').value.trim();
+            const prov = document.getElementById('m-prov').value.trim();
+            const note = document.getElementById('m-note').value.trim();
+
+            if(!nome || !ind || !citta) {
+                window.showStatus("Nome, Indirizzo e Città sono obbligatori!");
+                return;
+            }
+
+            const docData = {
+                name: nome.toUpperCase(), nome: nome.toUpperCase(),
+                address: ind.toUpperCase(), indirizzo: ind.toUpperCase(),
+                zip: textCap, cap: textCap,
+                city: citta.toUpperCase(), citta: citta.toUpperCase(),
+                province: prov.toUpperCase(), prov: prov.toUpperCase(),
+                phone: tel, telefono: tel,
+                notes: note, note: note,
+                timestamp: Date.now()
+            };
+
+            try {
+                if(window.editingContactId) {
+                    const docRef = doc(db, 'artifacts', MASTER_ID, 'public', 'data', 'informatori', window.editingContactId);
+                    await setDoc(docRef, docData, { merge: true });
+                    window.showStatus("Cliente aggiornato nel cloud!");
+                } else {
+                    const collRef = collection(db, 'artifacts', MASTER_ID, 'public', 'data', 'informatori');
+                    await addDoc(collRef, docData);
+                    window.showStatus("Nuovo cliente salvato nel cloud!");
+                }
+                window.annullaModifica();
+                window.renderRubricaList();
+            } catch (err) {
+                console.error(err);
+                window.showStatus("Errore nel salvataggio");
+            }
+        };
+
+        // Salva o aggiorna contatto direttamente dalla maschera di Spedizione
+        window.salvaSpedizioneInRubrica = async (isUpdate) => {
+            const nome = document.getElementById('c-n').value.trim();
+            const ind = document.getElementById('c-i').value.trim();
+            const textCap = document.getElementById('c-c').value.trim();
+            const citta = document.getElementById('c-t').value.trim();
+            const prov = document.getElementById('c-r').value.trim();
+            const tel = document.getElementById('c-tel').value.trim();
+            const note = document.getElementById('c-note').value.trim();
+
+            if(!nome || !ind || !citta) {
+                window.showStatus("Dati mancanti! Controlla nome, indirizzo e città.");
+                return;
+            }
+
+            const docData = {
+                name: nome.toUpperCase(), nome: nome.toUpperCase(),
+                address: ind.toUpperCase(), indirizzo: ind.toUpperCase(),
+                zip: textCap, cap: textCap,
+                city: citta.toUpperCase(), citta: citta.toUpperCase(),
+                province: prov.toUpperCase(), prov: prov.toUpperCase(),
+                phone: tel, telefono: tel,
+                notes: note, note: note,
+                timestamp: Date.now()
+            };
+
+            try {
+                if(isUpdate && window.selectedContactId) {
+                    const docRef = doc(db, 'artifacts', MASTER_ID, 'public', 'data', 'informatori', window.selectedContactId);
+                    await setDoc(docRef, docData, { merge: true });
+                    window.showStatus("Rubrica ClinnixPro aggiornata!");
+                } else {
+                    const collRef = collection(db, 'artifacts', MASTER_ID, 'public', 'data', 'informatori');
+                    const r = await addDoc(collRef, docData);
+                    window.selectedContactId = r.id;
+                    const btnUpdate = document.getElementById('btn-update-from-sped');
+                    if(btnUpdate) {
+                        btnUpdate.classList.remove('opacity-50', 'cursor-not-allowed');
+                        btnUpdate.disabled = false;
+                    }
+                    window.showStatus("Salvato in Rubrica!");
+                }
+            } catch (err) {
+                console.error(err);
+                window.showStatus("Errore nel salvataggio");
+            }
+        };
+
+        window.richiediEliminaContatto = (id) => {
+            const modal = document.getElementById('confirm-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            const btnElimina = document.getElementById('btn-conferma-elimina');
+            btnElimina.onclick = async () => {
+                try {
+                    const docRef = doc(db, 'artifacts', MASTER_ID, 'public', 'data', 'informatori', id);
+                    await deleteDoc(docRef);
+                    window.showStatus("Contatto eliminato con successo!");
+                    window.chiudiModalConferma();
+                    window.renderRubricaList();
+                } catch(err) {
+                    console.error(err);
+                    window.showStatus("Errore nell'eliminazione");
+                }
+            };
+        };
+
+        window.chiudiModalConferma = () => {
+            const modal = document.getElementById('confirm-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        };
+
+        // LOGICA DI GENERAZIONE STAMPABILI
+        window.viewLotti = (e) => {
+            e.preventDefault();
+            const s = document.getElementById('select-lotti');
+            const o = s.options[s.selectedIndex];
+            
+            // Sostituzione di alert() con il sistema showStatus non bloccante e sicuro per Iframe Sandbox
+            if(!o || !o.value) {
+                window.showStatus("Seleziona prima un prodotto dal menu!");
+                return;
+            }
+
+            const name = o.getAttribute('data-n') || '';
+            const lot = o.getAttribute('data-l') || '';
+            const exp = o.getAttribute('data-e') || '';
+            const q = parseInt(document.getElementById('f-q').value);
+            const start = parseInt(document.getElementById('f-s').value);
+            const cont = document.getElementById('grid-l');
+            if(!cont) return;
+            cont.innerHTML = '';
+            
+            const area = document.getElementById('print-lotti-area');
+            if(area) {
+                area.style.paddingTop = '10mm'; 
+                area.style.paddingLeft = '5mm';
+                area.style.paddingRight = '5mm';
+                area.style.paddingBottom = '10mm';
+            }
+
+            const head = document.createElement('div');
+            head.className = 'etichetta-intestazione-unificata';
+            head.innerHTML = `
+                <div class="titolo-prodotto">${name}</div>
+                <div class="scadenza-info">SCAD: ${exp}</div>
+            `;
+            cont.appendChild(head);
+
+            for(let i=5; i<=130; i++) {
+                const c = document.createElement('div');
+                c.className = 'cell';
+                if(i >= start && i < (start + q)) {
+                    c.innerHTML = `
+                        <p class="text-[7pt] text-slate-500 uppercase font-bold leading-none">Lotto:</p>
+                        <p class="text-[9pt] font-black my-0.5 text-slate-900 leading-none">${lot}</p>
+                        <p class="text-[6.5pt] text-slate-500 uppercase leading-none">Scade il</p>
+                        <p class="text-[8pt] font-extrabold text-slate-800 leading-none">${exp}</p>
+                    `;
+                } else {
+                    c.innerHTML = ``;
+                }
+                cont.appendChild(c);
+            }
+            document.body.classList.add('mode-preview', 'show-lotti');
+        };
+
+        window.viewCorriere = (e) => {
+            e.preventDefault();
+            const nome = document.getElementById('c-n').value.toUpperCase();
+            const ind = document.getElementById('c-i').value.toUpperCase();
+            const textCap = document.getElementById('c-c').value;
+            const citta = document.getElementById('c-t').value.toUpperCase();
+            const prov = document.getElementById('c-r').value.toUpperCase();
+            const tel = document.getElementById('c-tel').value.trim();
+            const note = document.getElementById('c-note').value.trim();
+
+            document.getElementById('p-n').innerText = nome;
+            document.getElementById('p-i').innerText = ind;
+            document.getElementById('p-c').innerText = textCap;
+            document.getElementById('p-t').innerText = citta;
+            document.getElementById('p-r').innerText = prov;
+            
+            // Compilazione e visualizzazione di Telefono e Note in stampa se presenti
+            const extraBox = document.getElementById('p-extra');
+            if (tel || note) {
+                extraBox.classList.remove('hidden');
+                document.getElementById('p-tel').innerText = tel || '-';
+                
+                const noteBox = document.getElementById('p-note-box');
+                if (note) {
+                    noteBox.classList.remove('hidden');
+                    document.getElementById('p-note').innerText = note;
+                } else {
+                    noteBox.classList.add('hidden');
+                }
+            } else {
+                extraBox.classList.add('hidden');
+            }
+
+            if (typeof JsBarcode === 'function') {
+                JsBarcode("#p-b", "CLX" + Date.now(), { format: "CODE128", width: 2, height: 60, displayValue: true });
+            }
+            document.body.classList.add('mode-preview', 'show-corriere');
+        };
+
+        // Firebase Auth listener - Sovrascrive i dati locali mock con quelli in cloud non appena arrivano
+        onAuthStateChanged(auth, (u) => {
+            if(u) {
+                window.updateSync('on');
+                unsubLotti = onSnapshot(collection(db, 'artifacts', MASTER_ID, 'public', 'data', 'items'), (s) => {
+                    const cloudItems = s.docs.map(d => ({ id: d.id, ...d.data() }));
+                    if (cloudItems && cloudItems.length > 0) {
+                        window.lottiCloud = cloudItems;
+                        window.popolaLotti(window.lottiCloud);
+                    }
+                    window.updateSync('on');
+                });
+                unsubRubrica = onSnapshot(collection(db, 'artifacts', MASTER_ID, 'public', 'data', 'informatori'), (s) => {
+                    const cloudContacts = s.docs.map(d => ({ id: d.id, ...d.data() }));
+                    if (cloudContacts && cloudContacts.length > 0) {
+                        window.rubricaCloud = cloudContacts;
+                        window.popolaRubrica(window.rubricaCloud);
+                    }
+                    
+                    // Se siamo nella vista Rubrica, ricarica la lista in tempo reale
+                    if(document.getElementById('sub-tab-gestione') && !document.getElementById('sub-tab-gestione').classList.contains('hidden')) {
+                        window.renderRubricaList(document.getElementById('rubrica-search')?.value || '');
+                    }
+                });
+            }
+        });
+
+        signInAnonymously(auth);
+    </script>
+
+    <style>
+        :root {
+            --brand: #002d5a;
+            --secondary: #007bff;
+            --accent: #20c997;
+            --bg: #f4f7fa;
+        }
+        body { background-color: var(--bg); font-family: 'Inter', sans-serif; }
+        
+        /* HEADER (Stile Foto 2.png) */
+        header { background-color: var(--brand); color: white; height: 64px; display: flex; align-items: center; padding: 0 24px; justify-content: space-between; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+        .logo-text { font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 1.25rem; letter-spacing: -0.5px; }
+        .logo-sub { font-weight: 400; color: rgba(255,255,255,0.6); }
+
+        /* CARDS (Stile Foto 2.png) */
+        .dash-card {
+            background: white; border-radius: 20px; padding: 32px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+            transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+            position: relative; overflow: hidden; border: 1px solid rgba(0,0,0,0.02);
+            text-align: left;
+        }
+        .dash-card::before {
+            content: ''; position: absolute; top: 0; right: 0; width: 60px; height: 60px;
+            background: radial-gradient(circle at top right, rgba(0,123,255,0.08), transparent 70%);
+            border-radius: 0 0 0 100%;
+        }
+        .dash-card:hover { transform: translateY(-6px); box-shadow: 0 15px 35px rgba(0,0,0,0.1); border-color: var(--secondary); }
+        .card-icon { width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center; margin-bottom: 24px; font-size: 1.5rem; }
+
+        /* INPUTS */
+        .f-input { width: 100%; background: #f8fafc; border: 2px solid #edf2f7; border-radius: 14px; padding: 12px 16px; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; outline: none; }
+        .f-input:focus { border-color: var(--secondary); background: white; }
+
+        /* CONFIGURAZIONE DI STAMPA A4 MATEMATICA E COLLASSATA */
+        #print-lotti-area {
+            display: none;
+            width: 210mm;
+            height: 297mm;
+            background: white;
+            box-sizing: border-box;
+            overflow: hidden;
+            padding-top: 10mm;
+            padding-left: 5mm;
+            padding-right: 5mm;
+            padding-bottom: 10mm;
+            page-break-inside: avoid;
+            page-break-after: avoid;
+        }
+        .grid-labels {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            grid-template-rows: repeat(13, 1fr); /* Divide lo spazio verticale esattamente in 13 parti uguali */
+            width: 100%;
+            height: 100%;
+            box-sizing: border-box;
+            gap: 0;
+        }
+        
+        /* Stile Intestazione Unificata in alto a sinistra (Foto originale) */
+        .etichetta-intestazione-unificata {
+            grid-column: span 4;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Montserrat', sans-serif;
+            color: #002d5a;
+            text-transform: uppercase;
+            border: 0.1mm dashed rgba(0,45,90,0.15);
+            text-align: center;
+            padding: 2mm;
+            background-color: #f8fafc;
+            box-sizing: border-box;
+        }
+        .etichetta-intestazione-unificata .titolo-prodotto {
+            font-weight: 800;
+            font-size: 11pt;
+            line-height: 1.1;
+            word-break: break-all;
+        }
+        .etichetta-intestazione-unificata .scadenza-info {
+            font-weight: 600;
+            font-size: 8pt;
+            margin-top: 1mm;
+        }
+
+        .cell {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            font-family: 'Times New Roman', serif;
+            padding: 1mm;
+            overflow: hidden;
+            box-sizing: border-box;
+            border: 0.1mm dashed rgba(0,0,0,0.06); /* Visibile leggermente solo a schermo per controllo allineamento */
+        }
+        .cell p { margin: 0; color: black; line-height: 1.15; }
+
+        /* AREA CORRIERE - PROPORZIONI CORRETTE SENZA "SHIPPING" */
+        #print-corriere-area { display: none !important; }
+
+        /* PREVIEW MODE */
+        #preview-bar {
+            display: none; position: fixed; top: 0; left: 0; right: 0;
+            background: #1a202c; height: 70px; z-index: 1000;
+            justify-content: center; gap: 30px; align-items: center; padding: 0 20px;
+        }
+        body.mode-preview #preview-bar { display: flex; }
+        body.mode-preview header, body.mode-preview main { display: none !important; }
+        
+        body.show-lotti #print-lotti-area { display: block; margin: 90px auto; box-shadow: 0 0 50px rgba(0,0,0,0.4); }
+        body.show-corriere #print-corriere-area { 
+            display: flex !important; flex-direction: column; justify-content: space-between;
+            background: white; width: 148mm; height: 210mm; margin: 90px auto; padding: 12mm;
+            border: 2px solid #000; box-shadow: 0 0 50px rgba(0,0,0,0.4);
+            box-sizing: border-box;
+        }
+
+        /* STILI DI FORZATURA PER IL MOTORE DI STAMPA FISICO */
+        @media print {
+            .no-print, #preview-bar, header, main { display: none !important; }
+            @page { margin: 0; size: A4; }
+            html, body {
+                margin: 0 !important;
+                padding: 0 !important;
+                height: 297mm !important;
+                width: 210mm !important;
+                overflow: hidden !important;
+                background: white !important;
+            }
+            #print-lotti-area, #print-corriere-area { display: none !important; }
+            body.show-lotti #print-lotti-area {
+                display: block !important;
+                margin: 0 !important;
+                width: 210mm !important;
+                height: 297mm !important;
+                box-sizing: border-box !important;
+            }
+            body.show-corriere #print-corriere-area { 
+                display: flex !important; 
+                margin: 0 !important; 
+                width: 100vw !important; 
+                height: 100vh !important; 
+                border: none !important;
+                box-sizing: border-box !important;
+            }
+            .cell { border: none !important; } /* Nasconde i tratteggi di posizionamento sulla carta reale */
+            .etichetta-intestazione-unificata { border: 1px solid black !important; background-color: transparent !important; color: black !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- BARRA ANTEPRIMA -->
+    <div id="preview-bar" class="no-print">
+        <button onclick="window.closePreview()" class="text-white/60 hover:text-white font-bold flex items-center gap-2">
+            <i class="fa-solid fa-arrow-left"></i> ESCI
+        </button>
+        <button onclick="window.print()" class="bg-emerald-500 hover:bg-emerald-400 text-white px-10 py-3 rounded-2xl font-black shadow-lg shadow-emerald-500/20 transition-all scale-105 flex items-center gap-2">
+            <i class="fa-solid fa-print"></i> STAMPA FOGLIO
+        </button>
+    </div>
+
+    <!-- STATO CLOUD NOTIFICHE -->
+    <div id="cloud-status" class="fixed bottom-6 right-6 bg-slate-900 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-lg border border-slate-800 transition-opacity duration-300 opacity-0 pointer-events-none z-[2000] no-print"></div>
+
+    <!-- HEADER -->
+    <header class="no-print">
+        <div class="flex items-center gap-2">
+            <i class="fa-solid fa-print text-accent text-xl"></i>
+            <span class="logo-text">ClinnixPro <span class="logo-sub">| Print Station</span></span>
+        </div>
+
+        <div class="flex items-center gap-6">
+            <div id="sync-badge"></div>
+            
+            <!-- TASTO APP PRINCIPALE CON PIN INCLUSO PER ACCESSO AUTOMATICO DINAMICO -->
+            <a id="btn-back-to-app" href="index.html?pin=12345" class="px-5 py-2 rounded-xl border-2 border-white/20 hover:border-white/60 hover:bg-white/5 text-white font-bold text-xs transition-all flex items-center gap-2 uppercase tracking-wide">
+                <i class="fa-solid fa-boxes-stacked"></i> App Principale
+            </a>
+        </div>
+    </header>
+
+    <!-- DASHBOARD -->
+    <main class="max-w-6xl mx-auto px-6 py-16 no-print text-center">
+        <div id="dash-main">
+            <h2 class="text-4xl font-black text-slate-800 mb-4 tracking-tight">Cosa vuoi stampare?</h2>
+            <p class="text-slate-400 text-lg mb-16">Seleziona il modulo di stampa desiderato per procedere.</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-10 max-w-4xl mx-auto">
+                <!-- CARD LOTTI -->
+                <button onclick="window.openTab('lotti')" class="dash-card group">
+                    <div class="card-icon bg-emerald-50 text-emerald-500 group-hover:bg-emerald-500 group-hover:text-white transition-all">
+                        <i class="fa-solid fa-tags"></i>
+                    </div>
+                    <h3 class="text-2xl font-black text-slate-800 mb-2">Stampa Etichette Lotti</h3>
+                    <p class="text-slate-500 text-sm leading-relaxed mb-6">Genera griglia su foglio fustellato (10×13). Con identificativo prodotto sul foglio.</p>
+                    <div class="text-emerald-500 font-bold text-sm flex items-center gap-1 group-hover:gap-2 transition-all">
+                        Avvia modulo <i class="fa-solid fa-arrow-right"></i>
+                    </div>
+                </button>
+
+                <!-- CARD CORRIERE -->
+                <button onclick="window.openTab('corriere')" class="dash-card group">
+                    <div class="card-icon bg-blue-50 text-blue-500 group-hover:bg-blue-500 group-hover:text-white transition-all">
+                        <i class="fa-solid fa-truck-fast"></i>
+                    </div>
+                    <h3 class="text-2xl font-black text-slate-800 mb-2">Stampa Etichette Corriere</h3>
+                    <p class="text-slate-500 text-sm leading-relaxed mb-6">Genera lettera vettura centrata dinamica, ideale per formati A6 o A4.</p>
+                    <div class="text-blue-500 font-bold text-sm flex items-center gap-1 group-hover:gap-2 transition-all">
+                        Avvia modulo <i class="fa-solid fa-arrow-right"></i>
+                    </div>
+                </button>
+            </div>
+        </div>
+
+        <!-- VISTA LOTTI -->
+        <div id="tab-lotti" class="hidden max-w-2xl mx-auto">
+            <div class="bg-white rounded-[32px] shadow-2xl overflow-hidden border border-slate-100">
+                <div class="bg-slate-900 p-10 text-white flex items-center justify-between">
+                    <div class="text-left">
+                        <h2 class="text-2xl font-black">Stampa lotti e scadenza</h2>
+                        <span class="text-accent text-[10px] font-black uppercase tracking-[0.2em]">Allineamento 10x13</span>
+                    </div>
+                    <button onclick="window.goHome()" class="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 transition-all flex items-center justify-center">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <div class="p-10 space-y-8">
+                    <div class="text-left space-y-2">
+                        <label class="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Prodotto</label>
+                        <select id="select-lotti" onchange="window.syncFields()" class="f-input appearance-none cursor-pointer">
+                            <option value="">Caricamento...</option>
+                        </select>
+                    </div>
+
+                    <form onsubmit="window.viewLotti(event)" class="space-y-6 pt-6 border-t border-slate-100 text-left">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-bold text-slate-400 uppercase">Prodotto Selezionato</label>
+                                <input type="text" id="i-p" readonly class="f-input bg-slate-100 cursor-not-allowed" placeholder="Prodotto">
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-bold text-slate-400 uppercase">Lotto Attivo</label>
+                                <input type="text" id="i-l" readonly class="f-input bg-slate-100 cursor-not-allowed" placeholder="Lotto">
+                            </div>
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[10px] font-bold text-slate-400 uppercase">Scadenza</label>
+                            <input type="text" id="i-e" readonly class="f-input bg-slate-100 cursor-not-allowed" placeholder="Scadenza">
+                        </div>
+
+                        <div class="bg-blue-50/50 p-6 rounded-2xl grid grid-cols-2 gap-6">
+                            <div class="text-left space-y-1">
+                                <label class="text-[10px] font-black text-blue-700 uppercase">Quantità Etichette</label>
+                                <input type="number" id="f-q" required min="1" max="126" value="126" class="f-input">
+                            </div>
+                            <div class="text-left space-y-1">
+                                <label class="text-[10px] font-black text-blue-700 uppercase">Inizia alla Cella N° (Min 5)</label>
+                                <input type="number" id="f-s" required min="5" max="130" value="5" class="f-input">
+                            </div>
+                        </div>
+
+                        <!-- PULSANTE AD ELEVATA VISIBILITÀ (Smeraldo) -->
+                        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-5 rounded-2xl shadow-xl shadow-emerald-500/20 transition-all text-lg uppercase tracking-wider block text-center">
+                            Genera Anteprima
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- VISTA CORRIERE -->
+        <div id="tab-corriere" class="hidden max-w-2xl mx-auto">
+            <div class="bg-white rounded-[32px] shadow-2xl overflow-hidden border border-slate-100 text-left">
+                <!-- Intestazione -->
+                <div class="bg-blue-600 p-8 text-white flex items-center justify-between">
+                    <div>
+                        <h2 class="text-2xl font-black">Modulo Corriere</h2>
+                        <span class="text-blue-200 text-[10px] font-black uppercase tracking-[0.2em]">Spedizioni e Rubrica</span>
+                    </div>
+                    <button onclick="window.goHome()" class="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 transition-all flex items-center justify-center">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <!-- Sub Navigation Rubrica -->
+                <div class="flex border-b border-slate-100 bg-slate-50 px-6 pt-2">
+                    <button id="btn-sub-sped" onclick="window.showCorriereSubTab('spedizione')" class="px-4 py-3 text-xs font-black border-b-2 border-secondary text-secondary transition-all">Nuova Spedizione</button>
+                    <button id="btn-sub-gest" onclick="window.showCorriereSubTab('gestione')" class="px-4 py-3 text-xs font-black border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all">Rubrica Clienti</button>
+                </div>
+
+                <div class="p-8">
+                    <!-- SUB-TAB 1: FORM DI SPEDIZIONE -->
+                    <div id="sub-tab-spedizione" class="space-y-6">
+                        <div class="text-left space-y-1">
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Carica da Rubrica</label>
+                            <select id="select-rubrica" onchange="window.syncRubrica()" class="f-input">
+                                <option value="">Caricamento...</option>
+                            </select>
+                        </div>
+                        <form onsubmit="window.viewCorriere(event)" class="space-y-4 pt-4 border-t border-slate-100">
+                            <input type="text" id="c-n" required class="f-input uppercase font-bold text-slate-800" placeholder="Destinatario / Ragione Sociale">
+                            <input type="text" id="c-i" required class="f-input uppercase text-slate-700" placeholder="Indirizzo">
+                            <div class="grid grid-cols-3 gap-4">
+                                <input type="text" id="c-c" required class="f-input text-slate-700" placeholder="CAP">
+                                <input type="text" id="c-t" required class="f-input uppercase text-slate-700" placeholder="Città">
+                                <input type="text" id="c-r" maxlength="2" class="f-input uppercase text-slate-700 font-bold" placeholder="PR">
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="space-y-1">
+                                    <label class="text-[10px] font-bold text-slate-400 uppercase">Telefono</label>
+                                    <input type="text" id="c-tel" class="f-input text-slate-700 font-bold" placeholder="Numero di Telefono">
+                                </div>
+                                <div class="space-y-1">
+                                    <label class="text-[10px] font-bold text-slate-400 uppercase">Note Corriere (Opzionali)</label>
+                                    <input type="text" id="c-note" class="f-input text-slate-700" placeholder="es. Consegna dopo le 14">
+                                </div>
+                            </div>
+
+                            <!-- Salvataggio rapido in Rubrica -->
+                            <div class="grid grid-cols-2 gap-4 pt-2 border-t border-slate-50">
+                                <button type="button" onclick="window.salvaSpedizioneInRubrica(false)" class="py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-user-plus text-slate-400"></i> Salva Nuovo
+                                </button>
+                                <button type="button" id="btn-update-from-sped" onclick="window.salvaSpedizioneInRubrica(true)" class="py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 opacity-50 cursor-not-allowed" disabled>
+                                    <i class="fa-solid fa-user-pen text-slate-400"></i> Aggiorna Selezionato
+                                </button>
+                            </div>
+
+                            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-5 rounded-2xl shadow-xl shadow-blue-500/10 transition-all text-lg uppercase tracking-wide">
+                                Crea Etichetta Spedizione
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- SUB-TAB 2: GESTIONE CONTATTI (CRUD) -->
+                    <div id="sub-tab-gestione" class="hidden space-y-6">
+                        <!-- Form per Aggiunta / Modifica Contatto -->
+                        <div id="rubrica-form-box" class="bg-slate-50 border border-slate-200 rounded-2xl p-6 hidden space-y-4">
+                            <h4 id="rubrica-form-title" class="text-xs font-black text-slate-600 uppercase tracking-wider">Aggiungi Nuovo Contatto</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <input type="text" id="m-nome" class="f-input uppercase font-bold" placeholder="Nome / Ragione Sociale">
+                                <input type="text" id="m-tel" class="f-input font-bold" placeholder="Telefono (es. 340123456)">
+                            </div>
+                            <input type="text" id="m-ind" class="f-input uppercase" placeholder="Indirizzo">
+                            <div class="grid grid-cols-3 gap-4">
+                                <input type="text" id="m-cap" class="f-input" placeholder="CAP">
+                                <input type="text" id="m-citta" class="f-input uppercase" placeholder="Città">
+                                <input type="text" id="m-prov" maxlength="2" class="f-input uppercase" placeholder="PR">
+                            </div>
+                            <textarea id="m-note" class="f-input" placeholder="Note Spedizione Opzionali (es. Consegna dopo le 14 o citofono 2B)"></textarea>
+                            
+                            <div class="flex justify-end gap-3 pt-2">
+                                <button type="button" onclick="window.annullaModifica()" class="px-4 py-2.5 bg-slate-200 hover:bg-slate-300 rounded-xl text-xs font-bold transition-all">Annulla</button>
+                                <button type="button" onclick="window.salvaContatto()" class="px-5 py-2 bg-secondary hover:bg-blue-600 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-500/20">Salva Contatto</button>
+                            </div>
+                        </div>
+
+                        <!-- Header Rubrica: Cerca + Aggiungi -->
+                        <div class="flex flex-col md:flex-row gap-4 items-center justify-between border-b border-slate-100 pb-4">
+                            <div class="relative w-full md:w-72">
+                                <input type="text" id="rubrica-search" oninput="window.renderRubricaList(this.value)" class="w-full pl-10 pr-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-2xl text-xs outline-none focus:border-secondary font-semibold" placeholder="Cerca cliente per nome o città...">
+                                <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                            </div>
+                            <button onclick="window.avviaNuovoContatto()" class="w-full md:w-auto px-5 py-3 bg-secondary hover:bg-blue-600 text-white rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-blue-500/10 transition-all">
+                                <i class="fa-solid fa-plus"></i> Nuovo Contatto
+                            </button>
+                        </div>
+
+                        <!-- Elenco Clienti -->
+                        <div id="rubrica-list-container" class="space-y-3 max-h-[350px] overflow-y-auto pr-1"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- STAMPA LOTTI -->
+    <div id="print-lotti-area"><div id="grid-l" class="grid-labels"></div></div>
+
+    <!-- STAMPA CORRIERE (Layout ad alta leggibilità, senza scritta "Shipping" e proporzioni perfette) -->
+    <div id="print-corriere-area" class="flex flex-col justify-between h-full bg-white text-slate-900">
+        <!-- Mittente -->
+        <div class="border-b-2 border-slate-900 pb-3">
+            <span class="text-[9px] font-bold tracking-widest text-slate-400 uppercase">Mittente:</span>
+            <p class="text-xs font-black text-slate-800">ClinnixPro s.r.l. - Via del Lavoro, 10 - Napoli (NA)</p>
+        </div>
+
+        <!-- Sezione Centrale Destinatario: spaziata e proporzionata al millimetro -->
+        <div class="flex-grow flex flex-col justify-center border-l-8 border-slate-900 pl-8 my-6">
+            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-2">CONSEGNARE A:</span>
+            <strong id="p-n" class="text-3xl block font-black leading-tight text-slate-950 uppercase mb-3"></strong>
+            <p id="p-i" class="text-xl font-medium text-slate-800 mb-1 uppercase"></p>
+            <p class="text-2xl font-black text-slate-900 uppercase"><span id="p-c"></span> - <span id="p-t"></span> (<span id="p-r"></span>)</p>
+            
+            <!-- Box Extra Telefono e Note Spedizione -->
+            <div id="p-extra" class="mt-4 pt-4 border-t border-slate-200 hidden">
+                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Contatti e Informazioni per la consegna:</p>
+                <p class="text-xs font-bold text-slate-700 mt-1">Telefono: <span id="p-tel" class="font-black text-sm"></span></p>
+                <div id="p-note-box" class="text-[11px] text-amber-800 bg-amber-50 px-3 py-2 rounded-lg font-bold border border-amber-100 mt-2 block">
+                    <i class="fa-solid fa-bell mr-1"></i> <span id="p-note"></span>
+                </div>
+            </div>
+
+            <span class="text-sm font-black mt-6 border-t-2 border-slate-900 pt-3 inline-block tracking-widest text-slate-700">ITALY</span>
+        </div>
+
+        <!-- Barcode Centrato ed Elegante -->
+        <div class="text-center border-t border-slate-100 pt-4 flex flex-col items-center">
+            <svg id="p-b" class="mx-auto"></svg>
+        </div>
+    </div>
+
+    <!-- MODAL DI CONFERMA ELIMINAZIONE CONTATTO -->
+    <div id="confirm-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[1100] hidden items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 space-y-4 text-center">
+            <div class="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center text-2xl mx-auto animate-pulse">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h3 class="text-lg font-black text-slate-800 uppercase leading-none">Rimuovere Contatto?</h3>
+            <p class="text-xs text-slate-500">Sei sicuro? Questa operazione cancellerà permanentemente il cliente dal magazzino cloud di ClinnixPro.</p>
+            <div class="flex justify-center gap-3 pt-2">
+                <button onclick="window.chiudiModalConferma()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-all">Annulla</button>
+                <button id="btn-conferma-elimina" class="px-5 py-2.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-rose-200">Sì, Rimuovi</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
