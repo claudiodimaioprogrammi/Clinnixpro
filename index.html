@@ -197,6 +197,18 @@
 
           const categorie = ['Integratori', 'Detergenti', 'Campioni', 'Bugiardini', 'Ufficio', 'Altro'];
 
+          // EFFETTO DI ACCESSO AUTOMATICO VIA URL (?pin=12345)
+          useEffect(() => {
+              const urlParams = new URLSearchParams(window.location.search);
+              const pinParam = urlParams.get('pin');
+              if (pinParam === CORRECT_PIN) {
+                  setIsAuthenticated(true);
+                  // Rimuove la password dalla barra degli indirizzi in tempo reale per sicurezza
+                  const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+                  window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
+              }
+          }, []);
+
           useEffect(() => {
             if (isDarkMode) document.documentElement.classList.add('dark');
             else document.documentElement.classList.remove('dark');
@@ -967,7 +979,7 @@
                                 <button onClick={() => setExtraItems(extraItems.filter(s => s.id !== item.id))} className="text-red-500 p-2"><Trash2 className="w-6 h-6"/></button>
                             </div>
                         ))}
-                        <button onClick={() => setExtraItems([...extraItems, {id: Math.random().toString(), name: '', qty: ''}])} className="text-[#3b82f6] font-black text-base mt-2 flex items-center gap-1"><Plus className="w-6 h-6"/> Aggiungi riga</button>
+                        <button onClick={() => setNewDest(newDest)} className="text-[#3b82f6] font-black text-base mt-2 flex items-center gap-1"><Plus className="w-6 h-6"/> Aggiungi riga</button>
                     </div>
 
                     <button onClick={handleAssignSamples} className={`w-full text-white py-5 rounded-2xl font-black text-xl shadow-md flex items-center justify-center gap-2 ${destType === 'congresso' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-[#3b82f6] hover:bg-blue-700'}`}><Save className="w-6 h-6" /> REGISTRA ASSEGNAZIONE</button>
@@ -1059,13 +1071,12 @@
                              </div>
                            )
                          })}
-                         {congressi.length === 0 && <p className="text-center opacity-50 font-bold p-10 text-xl">Nessun congresso salvato.</p>}
                        </div>
                      </div>
                   </div>
                 )}
 
-                {/* --- PAGINA DETTAGLI STORICO (SEPARATA CON TENDINA) --- */}
+                {/* --- PAGINA DETTAGLI STORICO --- */}
                 {currentView === 'repDetails' && (() => {
                   const entityShipments = shipments.filter(s => s.destination === activeEntityName);
                   return (
@@ -1109,12 +1120,6 @@
                                     )}
                                 </div>
                             ))}
-                            {entityShipments.length === 0 && (
-                                <div className="text-center py-10 opacity-50">
-                                    <h4 className="font-bold text-xl mb-2">Nessuna assegnazione.</h4>
-                                    <p className="text-sm">Non ci sono movimenti registrati per questo contatto.</p>
-                                </div>
-                            )}
                         </div>
                     </div>
                   )
@@ -1154,7 +1159,7 @@
                                 </div>
                             )}
                          </div>
-                       ))}
+                        ))}
                      </div>
                   </div>
                 )}
@@ -1172,7 +1177,6 @@
                           <div key={idx} className="p-4 rounded-2xl border-2 border-slate-300 relative bg-white dark:bg-slate-800 mt-2">
                             <button onClick={() => { const d = [...editLotsData]; d.splice(idx, 1); setEditLotsData(d); }} className="absolute -top-4 -right-3 bg-red-500 hover:bg-red-600 transition-colors text-white p-2 rounded-full"><Trash2 className="w-5 h-5"/></button>
                             
-                            {/* RIGA 1: Lotto e Scadenza - Griglia al 50% */}
                             <div className="grid grid-cols-2 gap-4 mt-2">
                               <div className="relative">
                                   <span className="absolute -top-4 left-3 px-2 text-base md:text-lg font-black text-emerald-600 dark:text-emerald-400 bg-white dark:bg-slate-800">Lotto</span>
@@ -1184,7 +1188,6 @@
                               </div>
                             </div>
 
-                            {/* RIGA 2: Pz/Cart e Tot Pz - Cella Tot Pz allargata con col-span-3 */}
                             <div className="grid grid-cols-5 gap-4 mt-6">
                               <div className="relative col-span-2">
                                   <span className="absolute -top-4 left-3 px-2 text-base md:text-lg font-black text-[#3b82f6] dark:text-blue-400 bg-white dark:bg-slate-800">Pz/Cart</span>
