@@ -43,7 +43,7 @@
         #root { width: 100%; overflow-x: hidden; }
         * { box-sizing: border-box; }
         
-        /* Adattamento testo automatico per nomi lunghi - INGRANDITO ANCORA */
+        /* Adattamento testo automatico per nomi lunghi */
         .product-title-adaptive {
             display: -webkit-box;
             -webkit-line-clamp: 2; 
@@ -58,7 +58,7 @@
             .mobile-stack { flex-direction: column !important; align-items: stretch !important; }
             .mobile-full { width: 100% !important; }
             .product-title-adaptive {
-                font-size: clamp(1.8rem, 8vw, 2.4rem); /* Ancora più grande su smartphone */
+                font-size: clamp(1.8rem, 8vw, 2.4rem); 
             }
         }
         
@@ -594,11 +594,11 @@
                         <div className="flex mobile-stack md:flex-row gap-3 w-full items-end mt-1">
                           <div className="flex-[1] min-w-0 relative w-full mt-2 sm:mt-0">
                             <span className={`absolute -top-2 left-3 px-1 text-sm font-black text-slate-500 ${isDarkMode ? 'bg-slate-900' : 'bg-white'}`}>Lotto (Opz.)</span>
-                            <input type="text" placeholder="Es. L123" value={newInvLotto} onChange={e => setNewInvLotto(e.target.value)} className={`w-full p-4 rounded-2xl border-2 font-bold outline-none text-base ${isDarkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'}`} />
+                            <input type="text" value={newInvLotto} onChange={e => setNewInvLotto(e.target.value)} className={`w-full p-4 rounded-2xl border-2 font-bold outline-none text-base ${isDarkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'}`} />
                           </div>
                           <div className="flex-[1] min-w-0 relative w-full mt-2 sm:mt-0">
                             <span className={`absolute -top-2 left-3 px-1 text-sm font-black text-slate-500 ${isDarkMode ? 'bg-slate-900' : 'bg-white'}`}>Scadenza (Opz.)</span>
-                            <input type="text" placeholder="MM/AA" value={newInvScadenza} onChange={e => setNewInvScadenza(e.target.value)} className={`w-full p-4 rounded-2xl border-2 font-bold outline-none text-base ${isDarkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'}`} />
+                            <input type="text" value={newInvScadenza} onChange={e => setNewInvScadenza(e.target.value)} className={`w-full p-4 rounded-2xl border-2 font-bold outline-none text-base ${isDarkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'}`} />
                           </div>
                           <button onClick={handleAddNewItem} className="w-full md:flex-[1] mt-2 sm:mt-0 bg-emerald-600 hover:bg-emerald-700 text-white p-4 rounded-2xl flex items-center justify-center gap-2 font-black text-lg shadow-md transition-colors"><Save className="w-6 h-6" /> {lang === 'it' ? 'SALVA' : 'SAVE'}</button>
                         </div>
@@ -634,8 +634,7 @@
                         const assignedLotsQty = validLots.reduce((sum, l) => sum + (parseInt(l.qty) || 0), 0);
                         const unassignedQty = Math.max(0, stock - assignedLotsQty);
 
-                        // Calcolo logico per numeri grandi:
-                        // Usiamo tracking-tighter per evitare che "3245" venga troncato in "324..."
+                        // Calcolo logico per numeri grandi
                         let stockTextSize = 'text-5xl md:text-6xl tracking-tighter';
                         if (stock.toString().length > 5) stockTextSize = 'text-3xl md:text-4xl tracking-tighter';
                         else if (stock.toString().length > 3) stockTextSize = 'text-4xl md:text-5xl tracking-tighter';
@@ -645,17 +644,17 @@
                             <div className="flex justify-between items-center w-full"><span className="font-bold text-xl truncate pr-2">Modifica Prodotto</span><X onClick={() => setEditingItemId(null)} className="cursor-pointer w-7 h-7 flex-shrink-0 text-slate-400 hover:text-red-500" /></div>
                             
                             <div className="relative mt-2 w-full">
-                                <span className="absolute -top-3.5 left-2 px-2 text-base md:text-lg font-black bg-inherit text-[#3b82f6]">Nome Prodotto</span>
-                                <input type="text" value={editFormData.name || ''} onChange={e => setEditFormData({...editFormData, name: e.target.value})} className={`w-full p-4 rounded-xl border-2 font-black text-2xl border-blue-300 ${isDarkMode ? 'bg-slate-700 text-white' : 'bg-white'}`} />
+                                <span className={`absolute -top-3.5 left-2 px-2 text-base md:text-lg font-black text-[#3b82f6] dark:text-blue-400 ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>Nome Prodotto</span>
+                                <input type="text" value={editFormData.name || ''} onChange={e => setEditFormData({...editFormData, name: e.target.value})} className={`w-full p-4 rounded-xl border-2 font-black text-2xl border-blue-300 bg-transparent ${isDarkMode ? 'text-white' : ''}`} />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4 w-full pt-1">
-                              <div className="relative mt-2"><span className="absolute -top-3.5 left-2 px-2 text-base md:text-lg font-black bg-inherit text-[#3b82f6]">Totale Pz</span><input type="number" value={editFormData.totalStock} onChange={e => setEditFormData({...editFormData, totalStock: e.target.value})} className={`w-full p-4 rounded-xl border-2 text-center font-black text-3xl md:text-4xl border-blue-300 ${isDarkMode ? 'bg-slate-700 text-white' : 'bg-white'}`} /></div>
-                              <div className="relative mt-2"><span className="absolute -top-3.5 left-2 px-2 text-base md:text-lg font-black bg-inherit">Pz x Cart</span><input type="number" value={editFormData.cartonSize} onChange={e => setEditFormData({...editFormData, cartonSize: e.target.value})} className={`w-full p-4 rounded-xl border-2 text-center font-black text-3xl md:text-4xl ${isDarkMode ? 'bg-slate-700 text-white border-slate-600' : 'bg-white border-slate-300'}`} /></div>
+                              <div className="relative mt-2"><span className={`absolute -top-3.5 left-2 px-2 text-base md:text-lg font-black text-[#3b82f6] dark:text-blue-400 ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>Totale Pz</span><input type="number" value={editFormData.totalStock} onChange={e => setEditFormData({...editFormData, totalStock: e.target.value})} className={`w-full p-4 rounded-xl border-2 text-center font-black text-3xl md:text-4xl border-blue-300 bg-transparent ${isDarkMode ? 'text-white' : ''}`} /></div>
+                              <div className="relative mt-2"><span className={`absolute -top-3.5 left-2 px-2 text-base md:text-lg font-black ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>Pz x Cart</span><input type="number" value={editFormData.cartonSize} onChange={e => setEditFormData({...editFormData, cartonSize: e.target.value})} className={`w-full p-4 rounded-xl border-2 text-center font-black text-3xl md:text-4xl bg-transparent ${isDarkMode ? 'text-white border-slate-600' : 'border-slate-300'}`} /></div>
                             </div>
                             <div className="grid grid-cols-2 gap-4 mt-3 w-full">
-                              <div className="relative mt-2"><span className="absolute -top-3.5 left-2 px-2 text-base md:text-lg font-black bg-inherit text-orange-500">Allarme Pz</span><input type="number" value={editFormData.alertThreshold} onChange={e => setEditFormData({...editFormData, alertThreshold: e.target.value})} className={`w-full p-4 rounded-xl border-2 text-center font-black text-2xl ${isDarkMode ? 'bg-slate-700 text-white border-slate-600' : 'bg-white border-slate-300'}`} /></div>
-                              <div className="relative mt-2"><span className="absolute -top-3.5 left-2 px-2 text-base md:text-lg font-black bg-inherit text-emerald-600">Pz/Conf</span><input type="number" value={editFormData.piecesPerPack} onChange={e => setEditFormData({...editFormData, piecesPerPack: e.target.value})} className={`w-full p-4 rounded-xl border-2 text-center font-black text-2xl border-emerald-300 ${isDarkMode ? 'bg-slate-700 text-white' : 'bg-white'}`} /></div>
+                              <div className="relative mt-2"><span className={`absolute -top-3.5 left-2 px-2 text-base md:text-lg font-black text-orange-500 dark:text-orange-400 ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>Allarme Pz</span><input type="number" value={editFormData.alertThreshold} onChange={e => setEditFormData({...editFormData, alertThreshold: e.target.value})} className={`w-full p-4 rounded-xl border-2 text-center font-black text-2xl bg-transparent ${isDarkMode ? 'text-white border-slate-600' : 'border-slate-300'}`} /></div>
+                              <div className="relative mt-2"><span className={`absolute -top-3.5 left-2 px-2 text-base md:text-lg font-black text-emerald-600 dark:text-emerald-400 ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>Pz/Conf</span><input type="number" value={editFormData.piecesPerPack} onChange={e => setEditFormData({...editFormData, piecesPerPack: e.target.value})} className={`w-full p-4 rounded-xl border-2 text-center font-black text-2xl border-emerald-300 bg-transparent ${isDarkMode ? 'text-white' : ''}`} /></div>
                             </div>
                             <div className="flex gap-2 items-center w-full mt-3 p-3 bg-slate-50 dark:bg-slate-700/50 rounded-2xl border-2 border-slate-200 dark:border-slate-600">
                                <input type="checkbox" checked={editFormData.excludeFromSamples || false} onChange={e => setEditFormData({...editFormData, excludeFromSamples: e.target.checked})} className="w-6 h-6 flex-shrink-0 accent-blue-600" id={`excl-${item.id}`} />
@@ -707,7 +706,6 @@
                             <div className="w-full md:w-[330px] shrink-0 flex flex-col gap-3 justify-end mt-4 md:mt-0">
                                 
                                 <div className="flex items-center justify-between w-full bg-slate-100 dark:bg-slate-900 p-2 md:p-3 rounded-3xl border-2 border-slate-300 dark:border-slate-700 shadow-inner">
-                                    {/* Ridotto px-3 per dare più spazio centrale ai numeri grandi, evitando il troncamento */}
                                     <button onClick={() => handleQuickStock(item, -cSize)} className="shrink-0 px-3 py-4 md:p-4 bg-white hover:bg-slate-200 dark:bg-slate-800 rounded-2xl text-red-600 shadow-md active:scale-95 transition-transform"><Minus className="w-8 h-8 font-black"/></button>
                                     <div className="text-center flex flex-col items-center justify-center flex-1 px-1 overflow-hidden">
                                        <span className={`${stockTextSize} text-slate-900 dark:text-white leading-none break-words w-full transition-all`}>{stock}</span>
@@ -780,11 +778,11 @@
                                        <X onClick={() => setEditingItemId(null)} className="cursor-pointer w-7 h-7 hover:text-red-500" />
                                    </div>
                                    <div className="grid grid-cols-1 gap-2 mt-2">
-                                       <div className="relative mt-2"><span className="absolute -top-3 left-3 px-2 text-sm font-black bg-inherit text-[#3b82f6]">Pezzi in Arrivo</span><input type="number" value={editFormData.incoming} onChange={e => setEditFormData({...editFormData, incoming: e.target.value})} className="w-full p-4 rounded-xl border-2 text-center font-black text-2xl bg-white text-slate-900 border-slate-200 dark:bg-slate-700 dark:text-white dark:border-slate-600 outline-none" /></div>
+                                       <div className="relative mt-2"><span className={`absolute -top-3 left-3 px-2 text-sm font-black text-[#3b82f6] dark:text-blue-400 ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>Pezzi in Arrivo</span><input type="number" value={editFormData.incoming} onChange={e => setEditFormData({...editFormData, incoming: e.target.value})} className="w-full p-4 rounded-xl border-2 text-center font-black text-2xl bg-transparent border-slate-200 dark:border-slate-600 outline-none" /></div>
                                    </div>
                                    <div className="grid grid-cols-2 gap-3 mt-3">
-                                       <div className="relative mt-2"><span className="absolute -top-3 left-3 px-2 text-sm font-black bg-inherit text-blue-500">Data Ordine</span><input type="date" value={editFormData.orderDate || ''} onChange={e => setEditFormData({...editFormData, orderDate: e.target.value})} className="w-full p-4 rounded-xl border-2 text-center font-bold bg-white text-slate-900 border-slate-200 dark:bg-slate-700 dark:text-white dark:border-slate-600 outline-none" /></div>
-                                       <div className="relative mt-2"><span className="absolute -top-3 left-3 px-2 text-sm font-black bg-inherit text-blue-500">Arrivo Previsto</span><input type="date" value={editFormData.incomingDate || ''} onChange={e => setEditFormData({...editFormData, incomingDate: e.target.value})} className="w-full p-4 rounded-xl border-2 text-center font-bold bg-white text-slate-900 border-slate-200 dark:bg-slate-700 dark:text-white dark:border-slate-600 outline-none" /></div>
+                                       <div className="relative mt-2"><span className={`absolute -top-3 left-3 px-2 text-sm font-black text-[#3b82f6] dark:text-blue-400 ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>Data Ordine</span><input type="date" value={editFormData.orderDate || ''} onChange={e => setEditFormData({...editFormData, orderDate: e.target.value})} className="w-full p-4 rounded-xl border-2 text-center font-bold bg-transparent border-slate-200 dark:border-slate-600 outline-none" /></div>
+                                       <div className="relative mt-2"><span className={`absolute -top-3 left-3 px-2 text-sm font-black text-[#3b82f6] dark:text-blue-400 ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>Arrivo Previsto</span><input type="date" value={editFormData.incomingDate || ''} onChange={e => setEditFormData({...editFormData, incomingDate: e.target.value})} className="w-full p-4 rounded-xl border-2 text-center font-bold bg-transparent border-slate-200 dark:border-slate-600 outline-none" /></div>
                                    </div>
                                    <div className={`flex flex-col gap-2 mt-3 mb-1 p-3 rounded-xl border ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-slate-100 border-slate-200'}`}>
                                         <label className="flex items-center gap-2 text-[13px] md:text-lg font-bold cursor-pointer text-slate-700 dark:text-slate-300">
@@ -931,11 +929,11 @@
                                 const list = destType === 'informatore' ? informatori : congressi;
                                 const info = list.find(i => (i.name||'').toLowerCase() === (val||'').toLowerCase()); 
                                 if(info && info.region) setNewRegion(info.region); 
-                            }} placeholder={destType === 'informatore' ? 'Nome Informatore' : 'Nome Congresso'} className={`w-full p-4 rounded-2xl border-2 text-xl font-bold shadow-sm ${destType === 'congresso' ? 'border-emerald-400 dark:bg-slate-700' : 'border-blue-400 dark:bg-slate-700'}`} />
+                            }} placeholder={destType === 'informatore' ? 'Nome Informatore' : 'Nome Congresso'} className={`w-full p-4 rounded-2xl border-2 text-xl font-bold shadow-sm bg-transparent ${destType === 'congresso' ? 'border-emerald-400' : 'border-blue-400'}`} />
                             <datalist id="dest-list">{(destType === 'informatore' ? informatori : congressi).map(i => <option key={i.id} value={i.name} />)}</datalist>
                         </div>
                         <div className="flex-1 relative w-full">
-                            <input type="text" value={newRegion} onChange={e => setNewRegion(e.target.value)} placeholder="Regione/Luogo" className="w-full p-4 rounded-2xl border-2 text-xl font-bold dark:bg-slate-700 shadow-sm" />
+                            <input type="text" value={newRegion} onChange={e => setNewRegion(e.target.value)} placeholder="Regione/Luogo" className="w-full p-4 rounded-2xl border-2 text-xl font-bold bg-transparent shadow-sm" />
                         </div>
                     </div>
 
@@ -1167,19 +1165,35 @@
                     <div className="w-full max-w-md max-h-[90vh] rounded-3xl border-2 border-emerald-500 shadow-2xl flex flex-col overflow-hidden bg-white dark:bg-slate-900">
                       <div className="flex justify-between items-center p-5 border-b-2 border-emerald-100 dark:border-emerald-900/30">
                         <h3 className="text-xl font-black text-emerald-500 uppercase tracking-wide">Lotti e Scadenze</h3>
-                        <X onClick={() => setEditingLotsId(null)} className="w-8 h-8 cursor-pointer text-slate-400" />
+                        <X onClick={() => setEditingLotsId(null)} className="w-8 h-8 cursor-pointer text-slate-400 hover:text-red-500" />
                       </div>
                       <div className="p-5 space-y-5 overflow-y-auto flex-1 custom-scrollbar">
                         {editLotsData.map((lotto, idx) => (
                           <div key={idx} className="p-4 rounded-2xl border-2 border-slate-300 relative bg-white dark:bg-slate-800 mt-2">
-                            <button onClick={() => { const d = [...editLotsData]; d.splice(idx, 1); setEditLotsData(d); }} className="absolute -top-4 -right-3 bg-red-500 text-white p-2 rounded-full"><Trash2 className="w-5 h-5"/></button>
+                            <button onClick={() => { const d = [...editLotsData]; d.splice(idx, 1); setEditLotsData(d); }} className="absolute -top-4 -right-3 bg-red-500 hover:bg-red-600 transition-colors text-white p-2 rounded-full"><Trash2 className="w-5 h-5"/></button>
+                            
+                            {/* RIGA 1: Lotto e Scadenza - Griglia al 50% */}
                             <div className="grid grid-cols-2 gap-4 mt-2">
-                              <div className="relative"><span className="absolute -top-4 left-3 px-2 text-base md:text-lg font-black text-emerald-600 bg-inherit">Lotto</span><input type="text" value={cleanLotId(lotto.id)} onChange={e => { const d = [...editLotsData]; d[idx].id = e.target.value; setEditLotsData(d); }} className="w-full p-4 rounded-xl border-2 font-black text-3xl bg-inherit outline-none" /></div>
-                              <div className="relative"><span className="absolute -top-4 left-3 px-2 text-base md:text-lg font-black text-emerald-600 bg-inherit">Scad.</span><input type="text" value={lotto.expiry || ''} onChange={e => { const d = [...editLotsData]; d[idx].expiry = e.target.value; setEditLotsData(d); }} className="w-full p-4 rounded-xl border-2 font-black text-3xl bg-inherit outline-none" /></div>
+                              <div className="relative">
+                                  <span className="absolute -top-4 left-3 px-2 text-base md:text-lg font-black text-emerald-600 dark:text-emerald-400 bg-white dark:bg-slate-800">Lotto</span>
+                                  <input type="text" value={cleanLotId(lotto.id)} onChange={e => { const d = [...editLotsData]; d[idx].id = e.target.value; setEditLotsData(d); }} className="w-full p-4 rounded-xl border-2 font-black text-3xl bg-transparent outline-none dark:text-white" />
+                              </div>
+                              <div className="relative">
+                                  <span className="absolute -top-4 left-3 px-2 text-base md:text-lg font-black text-emerald-600 dark:text-emerald-400 bg-white dark:bg-slate-800">Scad.</span>
+                                  <input type="text" value={lotto.expiry || ''} onChange={e => { const d = [...editLotsData]; d[idx].expiry = e.target.value; setEditLotsData(d); }} className="w-full p-4 rounded-xl border-2 font-black text-3xl bg-transparent outline-none dark:text-white" />
+                              </div>
                             </div>
-                            <div className="grid grid-cols-2 gap-4 mt-6">
-                              <div className="relative"><span className="absolute -top-4 left-3 px-2 text-base md:text-lg font-black text-[#3b82f6] bg-inherit">Pz/Cart</span><input type="number" value={lotto.cartonSize || items.find(i=>i.id===editingLotsId)?.cartonSize || 10} onChange={e => { const d = [...editLotsData]; d[idx].cartonSize = e.target.value; setEditLotsData(d); }} className="w-full p-4 rounded-xl border-2 font-black text-3xl text-center bg-inherit outline-none" /></div>
-                              <div className="relative"><span className="absolute -top-4 left-3 px-2 text-base md:text-lg font-black text-emerald-600 bg-inherit">Tot Pz</span><input type="number" value={lotto.qty || ''} onChange={e => { const d = [...editLotsData]; d[idx].qty = e.target.value; setEditLotsData(d); }} className="w-full p-4 rounded-xl border-2 font-black text-3xl text-center border-emerald-500 bg-inherit outline-none" /></div>
+
+                            {/* RIGA 2: Pz/Cart e Tot Pz - Cella Tot Pz allargata con col-span-3 */}
+                            <div className="grid grid-cols-5 gap-4 mt-6">
+                              <div className="relative col-span-2">
+                                  <span className="absolute -top-4 left-3 px-2 text-base md:text-lg font-black text-[#3b82f6] dark:text-blue-400 bg-white dark:bg-slate-800">Pz/Cart</span>
+                                  <input type="number" value={lotto.cartonSize || items.find(i=>i.id===editingLotsId)?.cartonSize || 10} onChange={e => { const d = [...editLotsData]; d[idx].cartonSize = e.target.value; setEditLotsData(d); }} className="w-full p-4 rounded-xl border-2 font-black text-3xl text-center bg-transparent outline-none dark:text-white" />
+                              </div>
+                              <div className="relative col-span-3">
+                                  <span className="absolute -top-4 left-3 px-2 text-base md:text-lg font-black text-emerald-600 dark:text-emerald-400 bg-white dark:bg-slate-800">Tot Pz</span>
+                                  <input type="number" value={lotto.qty || ''} onChange={e => { const d = [...editLotsData]; d[idx].qty = e.target.value; setEditLotsData(d); }} className="w-full p-4 rounded-xl border-2 font-black text-3xl text-center border-emerald-500 bg-transparent outline-none dark:text-white" />
+                              </div>
                             </div>
                           </div>
                         ))}
