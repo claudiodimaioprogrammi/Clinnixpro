@@ -82,7 +82,7 @@
     <script type="text/babel" data-type="module">
         import React, { useState, useEffect } from 'https://esm.sh/react@18';
         import ReactDOM from 'https://esm.sh/react-dom@18/client';
-        import { Package, Truck, CheckCircle, Plus, ArrowLeft, Trash2, ClipboardList, Save, AlertTriangle, Pencil, X, Moon, Sun, Search, Download, StickyNote, Layers, Box, Minus, Clock, Activity, ShoppingBag, Users, Briefcase, ShoppingCart, Calculator, MessageCircle, Globe, History, MapPin, ChevronDown, ChevronUp, EyeOff } from 'https://esm.sh/lucide-react@0.294.0';
+        import { Package, Truck, CheckCircle, Plus, ArrowLeft, Trash2, ClipboardList, Save, AlertTriangle, Pencil, X, Moon, Sun, Search, Download, StickyNote, Layers, Box, Minus, Clock, Activity, ShoppingBag, Users, Briefcase, ShoppingCart, Calculator, MessageCircle, Globe, History, MapPin, ChevronDown, ChevronUp, EyeOff, Printer } from 'https://esm.sh/lucide-react@0.294.0';
         
         import { initializeApp } from 'https://esm.sh/firebase/app';
         import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://esm.sh/firebase/auth';
@@ -203,6 +203,8 @@
               const pinParam = urlParams.get('pin');
               if (pinParam === CORRECT_PIN) {
                   setIsAuthenticated(true);
+                  // Registra in sessione per passarlo alla print station
+                  sessionStorage.setItem('clinnix_session_pin', pinParam);
                   // Rimuove la password dalla barra degli indirizzi in tempo reale per sicurezza
                   const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
                   window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
@@ -493,7 +495,14 @@
                      />
                      {pinError && <p className="text-red-400 font-bold mb-4">PIN errato, riprova.</p>}
                      <button 
-                         onClick={() => { if (pinInput === CORRECT_PIN) setIsAuthenticated(true); else setPinError(true); }} 
+                         onClick={() => { 
+                             if (pinInput === CORRECT_PIN) {
+                                 setIsAuthenticated(true);
+                                 sessionStorage.setItem('clinnix_session_pin', pinInput);
+                             } else {
+                                 setPinError(true);
+                             }
+                         }} 
                          className="w-full bg-[#3b82f6] hover:bg-[#2563eb] text-white py-4 rounded-2xl font-black text-xl shadow-lg transition-transform active:scale-95 uppercase tracking-wide">
                          Accedi al magazzino
                      </button>
@@ -512,6 +521,14 @@
                   <h1 className="text-xl font-extrabold tracking-tight">Clinnix<span className="text-[#3b82f6]">1.0</span></h1>
                 </div>
                 <div className="flex gap-2">
+                  {/* PULSANTE DELLA PRINT STATION CON PASSAGGIO DINAMICO DEL PIN */}
+                  <a 
+                    href={`clinnix_print.html?pin=${sessionStorage.getItem('clinnix_session_pin') || CORRECT_PIN}`} 
+                    className="p-2 bg-slate-800 rounded-lg border border-slate-700 hover:bg-slate-700 flex items-center gap-1.5 font-black text-xs text-white"
+                  >
+                    <Printer className="w-4 h-4 text-blue-400" />
+                    <span className="hidden sm:inline">STAMPA</span>
+                  </a>
                   <button onClick={() => setLang(lang === 'it' ? 'en' : 'it')} className="p-2 bg-slate-800 rounded-lg border border-slate-700 hover:bg-slate-700 flex items-center gap-1 font-black text-xs"><Globe className="w-4 h-4 text-blue-300"/> {lang.toUpperCase()}</button>
                   <button onClick={() => setShowCalc(true)} className="p-2 bg-slate-800 rounded-lg border border-slate-700 hover:bg-slate-700"><Calculator className="w-5 h-5 text-emerald-400" /></button>
                   <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 bg-slate-800 rounded-lg border border-slate-700 hover:bg-slate-700">
@@ -1141,7 +1158,7 @@
                                <div className="flex-1 min-w-0 cursor-pointer pr-4" onClick={() => setExpandedNotes({...expandedNotes, [n.id]: !expandedNotes[n.id]})}>
                                    <div className="flex items-start gap-2">
                                        <div className="mt-0.5 shrink-0 text-yellow-600">
-                                            {expandedNotes[n.id] ? <ChevronUp className="w-7 h-7"/> : <ChevronDown className="w-7 h-7"/>}
+                                           {expandedNotes[n.id] ? <ChevronUp className="w-7 h-7"/> : <ChevronDown className="w-7 h-7"/>}
                                        </div>
                                        <h3 className="text-3xl font-black text-yellow-950 dark:text-yellow-100 break-words leading-tight">
                                            {n.subject}
