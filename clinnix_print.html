@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ClinnixPro | Print Station</title>
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -20,17 +19,14 @@
             }
         }
     </script>
-    <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- JsBarcode -->
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Configurazione Firebase ClinnixPro
         const firebaseConfig = {
@@ -47,84 +43,38 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // Prodotti locali di test per sandbox
-        const mockLotti = [
-            {
-                id: "mock1",
-                name: "FOLIFERRO",
-                lots: [
-                    { id: "R664", expiry: "04/29" }
-                ]
-            },
-            {
-                id: "mock2",
-                name: "CLINNIX SOLUZIONE FISIOLOGICA 500ML",
-                lots: [
-                    { id: "LOT-9921", expiry: "12/28" },
-                    { id: "LOT-9922", expiry: "06/29" }
-                ]
-            }
-        ];
-
-        const mockRubrica = [
-            {
-                id: "mock-rub1",
-                nome: "FARMACIA SAN GENNARO",
-                indirizzo: "VIA DUOMO 145",
-                cap: "80138",
-                citta: "NAPOLI",
-                prov: "NA",
-                telefono: "081 293847",
-                note: "Consegnare solo di mattina entro le 12:00"
-            }
-        ];
-
+        // Dati di fallback locali
+        const mockLotti = [{id: "mock1", name: "FOLIFERRO", lots: [{ id: "R664", expiry: "04/29" }]}];
+        const mockRubrica = [{id: "mock-rub1", nome: "FARMACIA DI TEST", citta: "NAPOLI"}];
+        
         const urlParams = new URLSearchParams(window.location.search);
         const urlPin = urlParams.get('pin');
-        if (urlPin) {
-            sessionStorage.setItem('clinnix_session_pin', urlPin);
-        }
+        if (urlPin) sessionStorage.setItem('clinnix_session_pin', urlPin);
         const sessionPin = sessionStorage.getItem('clinnix_session_pin') || '12345';
 
         document.addEventListener('DOMContentLoaded', () => {
             const backBtn = document.getElementById('btn-back-to-app');
-            if (backBtn) {
-                const defaultRel = `index.html?pin=${sessionPin}`;
-                let targetUrl = defaultRel;
-                const hasValidBase = window.location.href && !window.location.href.startsWith('about:') && window.location.href !== 'null';
-
-                if (hasValidBase) {
-                    try { targetUrl = new URL(defaultRel, window.location.href).href; } catch (e) { targetUrl = defaultRel; }
-                }
-                backBtn.href = targetUrl;
-                backBtn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    if (window.self !== window.top) {
-                        try { window.top.location.href = targetUrl; } catch (sErr) { window.location.href = targetUrl; }
-                    } else {
-                        window.location.href = targetUrl;
-                    }
-                });
-            }
+            if (backBtn) backBtn.href = `index.html?pin=${sessionPin}`;
         });
 
         window.lottiCloud = mockLotti;
         window.rubricaCloud = mockRubrica;
+        window.mittentiCloud = [];
         window.selectedContactId = null;
         window.editingContactId = null;
-        window.autoSelectKey = null; 
-        window.mittenteData = {
-            nome: "CLINNIXPRO S.R.L.",
+        let unsubLotti = null;
+        let unsubInformatori = null;
+        let unsubCongressi = null;
+        let unsubMittenti = null;
+
+        // Mittente di default iniziale di fallback
+        window.mittenteAttivo = {
+            nome: "CLINNIX S.R.L.",
             indirizzo: "VIA DEL LAVORO, 10",
             cap: "80100",
             citta: "NAPOLI",
-            prov: "NA",
-            telefono: ""
+            prov: "NA"
         };
-
-        let unsubLotti = null;
-        let unsubRubrica = null;
-        let unsubMittente = null;
 
         window.showStatus = (msg) => {
             const el = document.getElementById('cloud-status');
@@ -140,9 +90,24 @@
             if(status === 'on') {
                 b.innerHTML = '<span class="flex items-center gap-1.5"><span class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span> ONLINE</span>';
                 b.className = "bg-emerald-500/10 text-emerald-400 text-[10px] px-3 py-1 rounded-full font-bold border border-emerald-500/20";
+            }
+        };
+
+        window.syncFields = () => {
+            const s = document.getElementById('select-lotti');
+            if (!s) return;
+            const o = s.options[s.selectedIndex];
+            const ip = document.getElementById('i-p');
+            const il = document.getElementById('i-l');
+            const ie = document.getElementById('i-e');
+            if(o && o.value) {
+                if (ip) ip.value = o.getAttribute('data-n') || '';
+                if (il) il.value = o.getAttribute('data-l') || '';
+                if (ie) ie.value = o.getAttribute('data-e') || '';
             } else {
-                b.innerHTML = '<span class="flex items-center gap-1.5"><i class="fa-solid fa-circle-notch fa-spin"></i> SYNC...</span>';
-                b.className = "bg-white/5 text-white/30 text-[10px] px-3 py-1 rounded-full font-bold border border-white/10";
+                if (ip) ip.value = '';
+                if (il) il.value = '';
+                if (ie) ie.value = '';
             }
         };
 
@@ -150,38 +115,20 @@
             const select = document.getElementById('select-lotti');
             if (!select) return;
             select.innerHTML = '<option value="">-- Seleziona Prodotto --</option>';
-            
             let list = [];
             data.forEach(item => {
                 const name = item.name || item.nome || 'Prodotto';
-                if (item.lots && Array.isArray(item.lots)) {
-                    item.lots.forEach((l, i) => {
-                        let id = l.id || l.lotto || l.lot || '';
-                        const exp = l.expiry || l.scadenza || '';
-                        if (id && exp) list.push({ name, lot: id, exp, key: `${item.id}_${i}` });
-                    });
-                }
+                if (item.lots) item.lots.forEach((l, i) => {
+                    let id = l.id || l.lotto || l.lot || '';
+                    if (id && (l.expiry || l.scadenza)) list.push({ name, lot: id, exp: l.expiry || l.scadenza, key: `${item.id}_${i}` });
+                });
             });
-
             list.sort((a,b) => a.name.localeCompare(b.name)).forEach(o => {
                 const opt = document.createElement('option');
-                opt.value = o.key;
-                opt.setAttribute('data-n', o.name);
-                opt.setAttribute('data-l', o.lot);
-                opt.setAttribute('data-e', o.exp);
+                opt.value = o.key; opt.setAttribute('data-n', o.name); opt.setAttribute('data-l', o.lot); opt.setAttribute('data-e', o.exp);
                 opt.textContent = `${o.name} (Lot: ${o.lot})`;
-                
-                if (window.autoSelectKey && window.autoSelectKey === `${o.name}_${o.lot}`) {
-                    opt.selected = true;
-                }
-                
                 select.appendChild(opt);
             });
-
-            if (window.autoSelectKey) {
-                window.syncFields();
-                window.autoSelectKey = null; 
-            }
         };
 
         window.popolaRubrica = (data) => {
@@ -190,15 +137,208 @@
             select.innerHTML = '<option value="">-- Seleziona Destinatario --</option>';
             data.sort((a,b) => (a.nome || a.name || '').localeCompare(b.nome || b.name || '')).forEach(d => {
                 const opt = document.createElement('option');
-                opt.value = d.id;
-                opt.textContent = `${d.nome || d.name || 'Cliente'} (${d.citta || ''})`;
+                opt.value = d.id; opt.textContent = `[${d.type || 'Cliente'}] ${d.nome || d.name || 'Senza Nome'} (${d.citta || d.region || ''})`;
                 select.appendChild(opt);
             });
         };
 
-        window.popolaLotti(window.lottiCloud);
-        window.popolaRubrica(window.rubricaCloud);
+        // --- GESTIONE NUOVO LOTTO/PRODOTTO ---
+        window.openNuovoLottoModal = () => {
+            const dl = document.getElementById('prod-list');
+            if (dl) {
+                dl.innerHTML = '';
+                const uniqueNames = [...new Set(window.lottiCloud.map(i => i.name || i.nome))].filter(Boolean).sort();
+                uniqueNames.forEach(n => {
+                    const opt = document.createElement('option');
+                    opt.value = n;
+                    dl.appendChild(opt);
+                });
+            }
+            document.getElementById('nl-nome').value = '';
+            document.getElementById('nl-lotto').value = '';
+            document.getElementById('nl-scad').value = '';
+            document.getElementById('modal-nuovo-lotto').classList.remove('hidden');
+        };
 
+        window.closeNuovoLottoModal = () => {
+            document.getElementById('modal-nuovo-lotto').classList.add('hidden');
+        };
+
+        window.salvaNuovoLotto = async () => {
+            const nome = document.getElementById('nl-nome').value.trim().toUpperCase();
+            const lotto = document.getElementById('nl-lotto').value.trim().toUpperCase();
+            const scad = document.getElementById('nl-scad').value.trim();
+
+            if (!nome || !lotto || !scad) {
+                window.showStatus("Tutti i campi (Nome, Lotto, Scadenza) sono obbligatori!");
+                return;
+            }
+
+            const existingItem = window.lottiCloud.find(x => (x.name || x.nome || '').toUpperCase() === nome);
+            const newLotObj = { id: lotto, expiry: scad, qty: 0, cartonSize: existingItem ? (existingItem.cartonSize || 10) : 10 };
+
+            try {
+                if (existingItem) {
+                    let lots = Array.isArray(existingItem.lots) ? [...existingItem.lots] : [];
+                    lots.push(newLotObj);
+                    await updateDoc(doc(db, 'artifacts', MASTER_ID, 'public', 'data', 'items', existingItem.id), { lots });
+                    window.showStatus("Lotto aggiunto al prodotto esistente!");
+                } else {
+                    const newItem = {
+                        name: nome,
+                        stock: 0,
+                        category: 'Altro',
+                        piecesPerPack: 1,
+                        cartonSize: 10,
+                        alertThreshold: 10,
+                        lots: [newLotObj],
+                        createdAt: Date.now()
+                    };
+                    await addDoc(collection(db, 'artifacts', MASTER_ID, 'public', 'data', 'items'), newItem);
+                    window.showStatus("Nuovo prodotto e lotto creati!");
+                }
+                
+                window.closeNuovoLottoModal();
+                
+                // Seleziona automaticamente il nuovo lotto dopo 1 secondo per permettere a Firebase di aggiornare
+                setTimeout(() => {
+                    const sel = document.getElementById('select-lotti');
+                    for (let i = 0; i < sel.options.length; i++) {
+                        if (sel.options[i].getAttribute('data-n') === nome && sel.options[i].getAttribute('data-l') === lotto) {
+                            sel.selectedIndex = i;
+                            window.syncFields();
+                            break;
+                        }
+                    }
+                }, 1200);
+            } catch (error) {
+                window.showStatus("Errore nel salvataggio!");
+            }
+        };
+
+        // --- GESTIONE MITTENTI ---
+        window.popolaSelectMittenti = () => {
+            const sGestione = document.getElementById('gestione-seleziona-mittente');
+            const sSped = document.getElementById('spedizione-seleziona-mittente');
+            
+            if(sGestione) {
+                sGestione.innerHTML = '<option value="">-- Seleziona un mittente da modificare --</option>';
+                window.mittentiCloud.forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m.id; opt.textContent = `${m.nome} - ${m.citta} ${m.isDefault ? '(Predefinito)' : ''}`;
+                    sGestione.appendChild(opt);
+                });
+            }
+
+            if(sSped) {
+                sSped.innerHTML = '';
+                if(window.mittentiCloud.length === 0) {
+                    sSped.innerHTML = '<option value="">Mittente Predefinito (Clinnix)</option>';
+                } else {
+                    window.mittentiCloud.forEach(m => {
+                        const opt = document.createElement('option');
+                        opt.value = m.id; opt.textContent = `${m.nome} - ${m.indirizzo}, ${m.citta} ${m.isDefault ? '(Predefinito)' : ''}`;
+                        sSped.appendChild(opt);
+                    });
+                }
+                if(window.mittenteAttivo && window.mittenteAttivo.id) {
+                    sSped.value = window.mittenteAttivo.id;
+                }
+            }
+        };
+
+        window.cambiaMittenteAttivo = (id) => {
+            const m = window.mittentiCloud.find(x => x.id === id);
+            if(m) {
+                window.mittenteAttivo = m;
+                window.aggiornaLabelMittente();
+            }
+        };
+
+        window.aggiornaLabelMittente = () => {
+            const m = window.mittenteAttivo;
+            const label = document.getElementById('p-mit-nome');
+            if(m && label) {
+                label.innerText = `${m.nome} - ${m.indirizzo} - ${m.cap} ${m.citta} (${m.prov})`;
+            }
+        };
+
+        window.nuovoMittente = () => {
+            const s = document.getElementById('gestione-seleziona-mittente'); if(s) s.value = '';
+            document.getElementById('mit-id').value = '';
+            document.getElementById('mit-nome').value = '';
+            document.getElementById('mit-ind').value = '';
+            document.getElementById('mit-cap').value = '';
+            document.getElementById('mit-citta').value = '';
+            document.getElementById('mit-prov').value = '';
+            document.getElementById('mit-def').checked = false;
+            document.getElementById('btn-del-mit').classList.add('hidden');
+        };
+
+        window.caricaCampiMittenteForm = (id) => {
+            if(!id) { window.nuovoMittente(); return; }
+            const m = window.mittentiCloud.find(x => x.id === id);
+            if(m) {
+                document.getElementById('mit-id').value = m.id;
+                document.getElementById('mit-nome').value = m.nome || '';
+                document.getElementById('mit-ind').value = m.indirizzo || '';
+                document.getElementById('mit-cap').value = m.cap || '';
+                document.getElementById('mit-citta').value = m.citta || '';
+                document.getElementById('mit-prov').value = m.prov || '';
+                document.getElementById('mit-def').checked = !!m.isDefault;
+                document.getElementById('btn-del-mit').classList.remove('hidden');
+            }
+        };
+
+        window.salvaMittenteCloud = async () => {
+            const id = document.getElementById('mit-id').value;
+            const nome = document.getElementById('mit-nome').value.trim().toUpperCase();
+            const ind = document.getElementById('mit-ind').value.trim().toUpperCase();
+            const cap = document.getElementById('mit-cap').value.trim();
+            const citta = document.getElementById('mit-citta').value.trim().toUpperCase();
+            const prov = document.getElementById('mit-prov').value.trim().toUpperCase();
+            const isDefault = document.getElementById('mit-def').checked;
+
+            if(!nome || !ind || !citta) {
+                window.showStatus("Nome, Indirizzo e Città sono obbligatori!");
+                return;
+            }
+
+            try {
+                // Se settiamo questo come default, togliamo il default agli altri
+                if(isDefault) {
+                    for(let m of window.mittentiCloud) {
+                        if(m.isDefault && m.id !== id) {
+                            await updateDoc(doc(db, 'artifacts', MASTER_ID, 'public', 'data', 'mittenti', m.id), { isDefault: false });
+                        }
+                    }
+                }
+
+                const dataMit = { nome, indirizzo: ind, cap, citta, prov, isDefault, timestamp: Date.now() };
+                
+                if(id) {
+                    await setDoc(doc(db, 'artifacts', MASTER_ID, 'public', 'data', 'mittenti', id), dataMit, { merge: true });
+                    window.showStatus("Mittente aggiornato!");
+                } else {
+                    await addDoc(collection(db, 'artifacts', MASTER_ID, 'public', 'data', 'mittenti'), dataMit);
+                    window.showStatus("Nuovo mittente salvato!");
+                }
+                
+                window.nuovoMittente();
+            } catch (err) { window.showStatus("Errore nel salvataggio del mittente"); }
+        };
+
+        window.eliminaMittenteCloud = async () => {
+            const id = document.getElementById('mit-id').value;
+            if(!id) return;
+            if(confirm("Vuoi davvero eliminare questo mittente?")) {
+                await deleteDoc(doc(db, 'artifacts', MASTER_ID, 'public', 'data', 'mittenti', id));
+                window.nuovoMittente();
+                window.showStatus("Mittente eliminato");
+            }
+        };
+
+        // --- NAVIGATION E RUBRICA CORRIERE ---
         window.openTab = (t) => {
             document.getElementById('dash-main').classList.add('hidden');
             document.getElementById('tab-lotti').classList.add('hidden');
@@ -217,80 +357,28 @@
             document.body.classList.remove('mode-preview', 'show-lotti', 'show-corriere');
         };
 
-        window.syncFields = () => {
-            const s = document.getElementById('select-lotti');
-            const o = s.options[s.selectedIndex];
-            if(o && o.value) {
-                document.getElementById('i-p').value = o.getAttribute('data-n') || '';
-                document.getElementById('i-l').value = o.getAttribute('data-l') || '';
-                document.getElementById('i-e').value = o.getAttribute('data-e') || '';
-            }
-        };
-
-        window.apriNuovoProdottoLotto = () => {
-            document.getElementById('np-nome').value = '';
-            document.getElementById('np-lotto').value = '';
-            document.getElementById('np-scadenza').value = '';
-            const modal = document.getElementById('new-prod-modal');
-            modal.className = "fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[1100] flex items-center justify-center p-4";
-        };
-
-        window.chiudiModalNuovoProdotto = () => {
-            document.getElementById('new-prod-modal').className = "fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[1100] hidden items-center justify-center p-4";
-        };
-
-        window.salvaNuovoProdotto = async () => {
-            const nome = document.getElementById('np-nome').value.trim().toUpperCase();
-            const lotto = document.getElementById('np-lotto').value.trim().toUpperCase();
-            const scadenza = document.getElementById('np-scadenza').value.trim();
-
-            if(!nome || !lotto || !scadenza) {
-                window.showStatus("Tutti i campi sono obbligatori!");
-                return;
-            }
-
-            const docData = {
-                name: nome,
-                lots: [
-                    { id: lotto, expiry: scadenza }
-                ],
-                timestamp: Date.now()
-            };
-
-            try {
-                window.autoSelectKey = `${nome}_${lotto}`;
-                await addDoc(collection(db, 'artifacts', MASTER_ID, 'public', 'data', 'items'), docData);
-                window.showStatus("Nuovo Prodotto salvato con successo!");
-                window.chiudiModalNuovoProdotto();
-            } catch (err) {
-                console.error(err);
-                window.showStatus("Errore durante il salvataggio");
-            }
-        };
-
         window.showCorriereSubTab = (sub) => {
             document.getElementById('sub-tab-spedizione').classList.add('hidden');
             document.getElementById('sub-tab-gestione').classList.add('hidden');
             document.getElementById('sub-tab-mittente').classList.add('hidden');
             document.getElementById(`sub-tab-${sub}`).classList.remove('hidden');
             
-            const btnSped = document.getElementById('btn-sub-sped');
+            const btnSped = document.getElementById('btn-sub-sped'); 
             const btnGest = document.getElementById('btn-sub-gest');
-            const btnMitt = document.getElementById('btn-sub-mitt');
+            const btnMit = document.getElementById('btn-sub-mit');
             
-            btnSped.className = "px-4 py-3 text-xs font-black border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all";
-            btnGest.className = "px-4 py-3 text-xs font-black border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all";
-            btnMitt.className = "px-4 py-3 text-xs font-black border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all";
-            
+            btnSped.className = "px-4 py-3 text-xs font-bold border-b-2 border-transparent text-slate-500";
+            btnGest.className = "px-4 py-3 text-xs font-bold border-b-2 border-transparent text-slate-500";
+            btnMit.className = "px-4 py-3 text-xs font-bold border-b-2 border-transparent text-slate-500";
+
             if(sub === 'spedizione') {
                 btnSped.className = "px-4 py-3 text-xs font-black border-b-2 border-secondary text-secondary transition-all";
             } else if(sub === 'gestione') {
                 btnGest.className = "px-4 py-3 text-xs font-black border-b-2 border-secondary text-secondary transition-all";
-                window.renderRubricaList();
-                window.annullaModifica();
+                window.renderRubricaList(); window.annullaModifica();
             } else if(sub === 'mittente') {
-                btnMitt.className = "px-4 py-3 text-xs font-black border-b-2 border-secondary text-secondary transition-all";
-                window.popolaMittenteForm();
+                btnMit.className = "px-4 py-3 text-xs font-black border-b-2 border-secondary text-secondary transition-all";
+                window.nuovoMittente(); // Resetta il form quando entri
             }
         };
 
@@ -301,45 +389,35 @@
             if(d) {
                 window.selectedContactId = id;
                 if(btnUpdate) { btnUpdate.classList.remove('opacity-50', 'cursor-not-allowed'); btnUpdate.disabled = false; }
-                document.getElementById('c-n').value = d.nome || d.name || '';
-                document.getElementById('c-i').value = d.indirizzo || d.address || '';
-                document.getElementById('c-c').value = d.cap || d.zip || '';
-                document.getElementById('c-t').value = d.citta || d.city || '';
-                document.getElementById('c-r').value = d.prov || d.province || '';
-                document.getElementById('c-tel').value = d.telefono || d.phone || '';
+                document.getElementById('c-n').value = d.nome || d.name || ''; document.getElementById('c-i').value = d.indirizzo || d.address || '';
+                document.getElementById('c-c').value = d.cap || d.zip || ''; document.getElementById('c-t').value = d.citta || d.city || d.region || '';
+                document.getElementById('c-r').value = d.prov || d.province || ''; document.getElementById('c-tel').value = d.telefono || d.phone || '';
                 document.getElementById('c-note').value = d.note || d.notes || '';
-            } else {
-                window.selectedContactId = null;
-                if(btnUpdate) { btnUpdate.classList.add('opacity-50', 'cursor-not-allowed'); btnUpdate.disabled = true; }
             }
         };
 
         window.renderRubricaList = (filterText = '') => {
             const container = document.getElementById('rubrica-list-container');
-            if(!container) return;
-            container.innerHTML = '';
+            if(!container) return; container.innerHTML = '';
             const filtered = window.rubricaCloud.filter(c => {
-                const searchStr = `${c.nome || c.name || ''} ${c.citta || c.city || ''} ${c.telefono || c.phone || ''}`.toLowerCase();
+                const searchStr = `${c.nome||c.name||''} ${c.citta||c.region||''} ${c.telefono||c.phone||''}`.toLowerCase();
                 return searchStr.includes(filterText.toLowerCase());
             });
             if(filtered.length === 0) {
-                container.innerHTML = '<div class="text-center py-8 text-slate-400 text-xs font-bold uppercase tracking-wider">Nessun cliente in archivio</div>';
+                container.innerHTML = '<div class="text-center py-8 text-slate-400 text-xs font-bold uppercase">Nessun cliente in archivio</div>';
                 return;
             }
             filtered.forEach(c => {
                 const card = document.createElement('div');
-                card.className = "bg-slate-50 border border-slate-100 rounded-2xl p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:shadow-md transition-all w-full box-border overflow-hidden";
+                card.className = "bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 w-full box-border overflow-hidden";
                 card.innerHTML = `
-                    <div class="flex-grow space-y-1 text-left w-full md:w-auto">
-                        <div class="font-bold text-slate-800 uppercase text-xs break-words">${c.nome || c.name || 'Senza Nome'}</div>
-                        <div class="text-[10px] text-slate-500 break-words"><i class="fa-solid fa-location-dot mr-1"></i> ${c.indirizzo || c.address || '-'}, ${c.cap || c.zip || ''} ${c.citta || c.city || ''} (${c.prov || c.province || ''})</div>
-                        ${c.telefono ? `<div class="text-[10px] text-slate-600 font-bold"><i class="fa-solid fa-phone mr-1"></i> Tel: ${c.telefono}</div>` : ''}
-                        ${c.note ? `<div class="text-[9px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded inline-block mt-1 font-semibold break-words"><i class="fa-solid fa-bell mr-1"></i> ${c.note}</div>` : ''}
+                    <div class="flex-grow space-y-1 text-left w-full break-words">
+                        <div class="font-bold text-slate-800 uppercase text-xs break-words"><span class="text-[9px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded mr-1">${c.type || 'CL'}</span> ${c.nome || c.name || 'Senza Nome'}</div>
+                        <div class="text-[10px] text-slate-500 break-words"><i class="fa-solid fa-location-dot mr-1"></i> ${c.indirizzo||''}, ${c.cap||''} ${c.citta||c.region||''} (${c.prov||''})</div>
                     </div>
-                    <div class="flex gap-2 w-full md:w-auto justify-end mt-2 md:mt-0">
-                        <button onclick="window.usaContatto('${c.id}')" class="bg-emerald-500 hover:bg-emerald-600 text-white text-[9px] font-black px-3 py-2 rounded-xl flex items-center gap-1 uppercase tracking-wide transition-all"><i class="fa-solid fa-truck"></i> Usa</button>
-                        <button onclick="window.avviaModificaContatto('${c.id}')" class="bg-blue-500 hover:bg-blue-600 text-white text-[9px] font-black px-3 py-2 rounded-xl flex items-center gap-1 uppercase tracking-wide transition-all"><i class="fa-solid fa-pen"></i> Modifica</button>
-                        <button onclick="window.richiediEliminaContatto('${c.id}')" class="bg-rose-500 hover:bg-rose-600 text-white text-[9px] font-black px-3 py-2 rounded-xl flex items-center gap-1 uppercase tracking-wide transition-all"><i class="fa-solid fa-trash"></i> Elimina</button>
+                    <div class="flex gap-2 w-full md:w-auto justify-end">
+                        <button onclick="window.usaContatto('${c.id}')" class="bg-emerald-500 text-white text-[9px] font-black px-2 py-2 rounded-lg flex items-center gap-1"><i class="fa-solid fa-truck"></i> Usa</button>
+                        <button onclick="window.avviaModificaContatto('${c.id}')" class="bg-blue-500 text-white text-[9px] font-black px-2.5 py-2 rounded-lg"><i class="fa-solid fa-pen"></i></button>
                     </div>
                 `;
                 container.appendChild(card);
@@ -347,64 +425,60 @@
         };
 
         window.usaContatto = (id) => {
-            const d = window.rubricaCloud.find(x => x.id === id);
-            if(d) {
-                window.selectedContactId = id;
-                document.getElementById('select-rubrica').value = id;
-                document.getElementById('c-n').value = d.nome || d.name || '';
-                document.getElementById('c-i').value = d.indirizzo || d.address || '';
-                document.getElementById('c-c').value = d.cap || d.zip || '';
-                document.getElementById('c-t').value = d.citta || d.city || '';
-                document.getElementById('c-r').value = d.prov || d.province || '';
-                document.getElementById('c-tel').value = d.telefono || d.phone || '';
-                document.getElementById('c-note').value = d.note || d.notes || '';
-                const btnUpdate = document.getElementById('btn-update-from-sped');
-                if(btnUpdate) { btnUpdate.classList.remove('opacity-50', 'cursor-not-allowed'); btnUpdate.disabled = false; }
-                window.showStatus("Cliente pronto per la spedizione!");
-                window.showCorriereSubTab('spedizione');
-            }
+            document.getElementById('select-rubrica').value = id; window.syncRubrica();
+            window.showStatus("Cliente pronto per la spedizione!"); window.showCorriereSubTab('spedizione');
+        };
+
+        window.annullaModifica = () => {
+            const box = document.getElementById('rubrica-form-box');
+            if (box) box.classList.add('hidden');
+            window.editingContactId = null;
         };
 
         window.avviaNuovoContatto = () => {
             window.editingContactId = null;
-            document.getElementById('rubrica-form-title').innerText = "Aggiungi Nuovo Contatto";
-            document.getElementById('m-nome').value = '';
-            document.getElementById('m-tel').value = '';
-            document.getElementById('m-ind').value = '';
-            document.getElementById('m-cap').value = '';
-            document.getElementById('m-citta').value = '';
-            document.getElementById('m-prov').value = '';
-            document.getElementById('m-note').value = '';
-            document.getElementById('rubrica-form-box').classList.remove('hidden');
+            const title = document.getElementById('rubrica-form-title');
+            if (title) title.innerText = "Aggiungi Nuovo";
+            ['m-nome','m-tel','m-ind','m-cap','m-citta','m-prov','m-note'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+            const box = document.getElementById('rubrica-form-box');
+            if (box) box.classList.remove('hidden');
         };
 
         window.avviaModificaContatto = (id) => {
             window.editingContactId = id;
-            document.getElementById('rubrica-form-title').innerText = "Modifica Contatto Rubrica";
+            const title = document.getElementById('rubrica-form-title');
+            if (title) title.innerText = "Modifica Contatto";
             const d = window.rubricaCloud.find(x => x.id === id);
             if(d) {
-                document.getElementById('m-nome').value = d.nome || d.name || '';
-                document.getElementById('m-tel').value = d.telefono || d.phone || '';
-                document.getElementById('m-ind').value = d.indirizzo || d.address || '';
-                document.getElementById('m-cap').value = d.cap || d.zip || '';
-                document.getElementById('m-citta').value = d.citta || d.city || '';
-                document.getElementById('m-prov').value = d.prov || d.province || '';
-                document.getElementById('m-note').value = d.note || d.notes || '';
-                document.getElementById('rubrica-form-box').classList.remove('hidden');
-                document.getElementById('rubrica-form-box').scrollIntoView({ behavior: 'smooth' });
+                const fields = {
+                    'm-nome': d.nome || d.name || '',
+                    'm-tel': d.telefono || d.phone || '',
+                    'm-ind': d.indirizzo || d.address || '',
+                    'm-cap': d.cap || d.zip || '',
+                    'm-citta': d.citta || d.city || d.region || '',
+                    'm-prov': d.prov || d.province || '',
+                    'm-note': d.note || d.notes || ''
+                };
+                Object.keys(fields).forEach(key => {
+                    const el = document.getElementById(key);
+                    if (el) el.value = fields[key];
+                });
+                const box = document.getElementById('rubrica-form-box');
+                if (box) {
+                    box.classList.remove('hidden');
+                    box.scrollIntoView({ behavior: 'smooth' });
+                }
             }
-        };
-
-        window.annullaModifica = () => {
-            document.getElementById('rubrica-form-box').classList.add('hidden');
-            window.editingContactId = null;
         };
 
         window.salvaContatto = async () => {
             const nome = document.getElementById('m-nome').value.trim();
             const tel = document.getElementById('m-tel').value.trim();
             const ind = document.getElementById('m-ind').value.trim();
-            const textCap = document.getElementById('m-cap').value.trim();
+            const cap = document.getElementById('m-cap').value.trim();
             const citta = document.getElementById('m-citta').value.trim();
             const prov = document.getElementById('m-prov').value.trim();
             const note = document.getElementById('m-note').value.trim();
@@ -416,7 +490,7 @@
             const docData = {
                 name: nome.toUpperCase(), nome: nome.toUpperCase(),
                 address: ind.toUpperCase(), indirizzo: ind.toUpperCase(),
-                zip: textCap, cap: textCap,
+                zip: cap, cap: cap,
                 city: citta.toUpperCase(), citta: citta.toUpperCase(),
                 province: prov.toUpperCase(), prov: prov.toUpperCase(),
                 phone: tel, telefono: tel,
@@ -426,135 +500,22 @@
             try {
                 if(window.editingContactId) {
                     await setDoc(doc(db, 'artifacts', MASTER_ID, 'public', 'data', 'informatori', window.editingContactId), docData, { merge: true });
-                    window.showStatus("Cliente aggiornato nel cloud!");
+                    window.showStatus("Cliente aggiornato!");
                 } else {
                     await addDoc(collection(db, 'artifacts', MASTER_ID, 'public', 'data', 'informatori'), docData);
-                    window.showStatus("Nuovo cliente salvato nel cloud!");
+                    window.showStatus("Nuovo cliente salvato!");
                 }
                 window.annullaModifica();
                 window.renderRubricaList();
             } catch (err) { window.showStatus("Errore nel salvataggio"); }
         };
 
-        window.salvaSpedizioneInRubrica = async (isUpdate) => {
-            const nome = document.getElementById('c-n').value.trim();
-            const ind = document.getElementById('c-i').value.trim();
-            const textCap = document.getElementById('c-c').value.trim();
-            const citta = document.getElementById('c-t').value.trim();
-            const prov = document.getElementById('c-r').value.trim();
-            const tel = document.getElementById('c-tel').value.trim();
-            const note = document.getElementById('c-note').value.trim();
-
-            if(!nome || !ind || !citta) {
-                window.showStatus("Dati mancanti! Controlla nome, indirizzo e città.");
-                return;
-            }
-            const docData = {
-                name: nome.toUpperCase(), nome: nome.toUpperCase(),
-                address: ind.toUpperCase(), indirizzo: ind.toUpperCase(),
-                zip: textCap, cap: textCap,
-                city: citta.toUpperCase(), citta: citta.toUpperCase(),
-                province: prov.toUpperCase(), prov: prov.toUpperCase(),
-                phone: tel, telefono: tel,
-                notes: note, note: note,
-                timestamp: Date.now()
-            };
-            try {
-                if(isUpdate && window.selectedContactId) {
-                    await setDoc(doc(db, 'artifacts', MASTER_ID, 'public', 'data', 'informatori', window.selectedContactId), docData, { merge: true });
-                    window.showStatus("Rubrica ClinnixPro aggiornata!");
-                } else {
-                    const r = await addDoc(collection(db, 'artifacts', MASTER_ID, 'public', 'data', 'informatori'), docData);
-                    window.selectedContactId = r.id;
-                    const btnUpdate = document.getElementById('btn-update-from-sped');
-                    if(btnUpdate) { btnUpdate.classList.remove('opacity-50', 'cursor-not-allowed'); btnUpdate.disabled = false; }
-                    window.showStatus("Salvato in Rubrica!");
-                }
-            } catch (err) { window.showStatus("Errore nel salvataggio"); }
-        };
-
-        window.richiediEliminaContatto = (id) => {
-            const modal = document.getElementById('confirm-modal');
-            modal.className = "fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[1100] flex items-center justify-center p-4";
-            document.getElementById('btn-conferma-elimina').onclick = async () => {
-                try {
-                    await deleteDoc(doc(db, 'artifacts', MASTER_ID, 'public', 'data', 'informatori', id));
-                    window.showStatus("Contatto eliminato!");
-                    window.chiudiModalConferma();
-                    window.renderRubricaList();
-                } catch(err) { window.showStatus("Errore nell'eliminazione"); }
-            };
-        };
-
-        window.chiudiModalConferma = () => {
-            document.getElementById('confirm-modal').className = "fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[1100] hidden items-center justify-center p-4";
-        };
-
-        // POPOLAMENTO FORM MITTENTE
-        window.popolaMittenteForm = () => {
-            const m = window.mittenteData;
-            document.getElementById('mit-nome').value = m.nome || '';
-            document.getElementById('mit-ind').value = m.indirizzo || '';
-            document.getElementById('mit-cap').value = m.cap || '';
-            document.getElementById('mit-citta').value = m.citta || '';
-            document.getElementById('mit-prov').value = m.prov || '';
-            document.getElementById('mit-tel').value = m.telefono || '';
-        };
-
-        // SALVATAGGIO CLOUD DATI MITTENTE
-        window.salvaMittenteCloud = async () => {
-            const nome = document.getElementById('mit-nome').value.trim().toUpperCase();
-            const ind = document.getElementById('mit-ind').value.trim().toUpperCase();
-            const cap = document.getElementById('mit-cap').value.trim();
-            const citta = document.getElementById('mit-citta').value.trim().toUpperCase();
-            const prov = document.getElementById('mit-prov').value.trim().toUpperCase();
-            const tel = document.getElementById('mit-tel').value.trim();
-
-            if(!nome || !ind || !citta) {
-                window.showStatus("Nome, Indirizzo e Città del mittente sono obbligatori!");
-                return;
-            }
-
-            const docData = {
-                nome,
-                indirizzo: ind,
-                cap,
-                citta,
-                prov,
-                telefono: tel,
-                timestamp: Date.now()
-            };
-
-            try {
-                await setDoc(doc(db, 'artifacts', MASTER_ID, 'public', 'data', 'config', 'mittente'), docData);
-                window.showStatus("Mittente predefinito salvato nel Cloud!");
-            } catch (err) {
-                console.error(err);
-                window.showStatus("Errore nel salvataggio del mittente");
-            }
-        };
-
-        // APPLICAZIONE DINAMICA DEL MITTENTE ALL'ETICHETTA
-        window.applyMittenteData = () => {
-            const m = window.mittenteData;
-            const pInfo = document.getElementById('p-mittente-info');
-            if(pInfo) {
-                let text = `${m.nome || 'ClinnixPro'} - ${m.indirizzo || ''} - ${m.cap || ''} ${m.citta || ''} (${m.prov || ''})`;
-                if(m.telefono) text += ` - Tel: ${m.telefono}`;
-                pInfo.innerText = text;
-            }
-        };
-
-        // RIGENERAZIONE CALCOLATA DELLA GRIGLIA FUSTELLATA 10x13 CON INTESTAZIONE INTEGRATA
+        // --- ENGINE DI GENERAZIONE LOTTI CON COLONNE ACCOPPIATE ---
         window.viewLotti = (e) => {
             e.preventDefault();
             const s = document.getElementById('select-lotti');
             const o = s.options[s.selectedIndex];
-            
-            if(!o || !o.value) {
-                window.showStatus("Seleziona prima un prodotto dal menu!");
-                return;
-            }
+            if(!o || !o.value) { alert("Seleziona prima un prodotto!"); return; }
 
             const name = o.getAttribute('data-n') || '';
             const lot = o.getAttribute('data-l') || '';
@@ -562,671 +523,439 @@
             const q = parseInt(document.getElementById('f-q').value);
             const start = parseInt(document.getElementById('f-s').value);
             const cont = document.getElementById('grid-l');
-            if(!cont) return;
             cont.innerHTML = '';
 
-            // INTESTAZIONE UNIFICATA RIPRISTINATA (Prende lo spazio delle prime 4 celle della prima riga)
             const head = document.createElement('div');
-            head.className = 'etichetta-intestazione-unificata';
+            head.className = 'etichetta-intestazione-unificata cell-fustellata';
+            head.style.gridColumn = '1 / 3'; head.style.gridRow = '1 / 3';
             head.innerHTML = `
                 <div class="titolo-prodotto">${name}</div>
                 <div class="scadenza-info">LOTTO: ${lot} &nbsp;|&nbsp; SCAD: ${exp}</div>
             `;
             cont.appendChild(head);
 
-            // Costruzione delle celle rimanenti da 5 a 130 per allineamento perfetto
-            for(let i = 5; i <= 130; i++) {
+            let printedCount = 0;
+            for(let i=1; i<=140; i++) {
+                if (i === 1 || i === 2 || i === 11 || i === 12) continue;
+
+                const logicalRow = Math.ceil(i / 10);
+                const logicalCol = ((i - 1) % 10) + 1;
+
+                let gridColStart = logicalCol;
+                if (logicalCol > 2) gridColStart += 1;
+                if (logicalCol > 4) gridColStart += 1;
+                if (logicalCol > 6) gridColStart += 1;
+                if (logicalCol > 8) gridColStart += 1;
+
                 const c = document.createElement('div');
-                c.className = 'cell';
-                if(i >= start && i < (start + q)) {
+                c.className = 'cell cell-fustellata';
+                c.style.gridColumn = `${gridColStart} / ${gridColStart + 1}`;
+                c.style.gridRow = `${logicalRow} / ${logicalRow + 1}`;
+
+                if(i >= start && printedCount < q) {
                     c.innerHTML = `
-                        <p class="text-[7.5pt] text-slate-500 uppercase font-bold leading-none">Lotto:</p>
-                        <p class="text-[10.5pt] font-black my-0.5 text-slate-950 leading-none">${lot}</p>
-                        <p class="text-[7pt] text-slate-500 uppercase leading-none">Scadenza:</p>
-                        <p class="text-[9.5pt] font-black text-slate-900 leading-none mt-0.5">${exp}</p>
+                        <p class="t-label">Lotto:</p>
+                        <p class="t-val">${lot}</p>
+                        <p class="t-label">Scade il</p>
+                        <p class="t-val">${exp}</p>
                     `;
-                } else {
-                    c.innerHTML = ``;
+                    printedCount++;
                 }
                 cont.appendChild(c);
             }
+            document.body.classList.remove('show-corriere');
             document.body.classList.add('mode-preview', 'show-lotti');
         };
 
         window.viewCorriere = (e) => {
             e.preventDefault();
-            const nome = document.getElementById('c-n').value.toUpperCase();
-            const ind = document.getElementById('c-i').value.toUpperCase();
-            const textCap = document.getElementById('c-c').value;
-            const citta = document.getElementById('c-t').value.toUpperCase();
-            const prov = document.getElementById('c-r').value.toUpperCase();
-            const tel = document.getElementById('c-tel').value.trim();
-            const note = document.getElementById('c-note').value.trim();
-
-            document.getElementById('p-n').innerText = nome;
-            document.getElementById('p-i').innerText = ind;
-            document.getElementById('p-c').innerText = textCap;
-            document.getElementById('p-t').innerText = citta;
-            document.getElementById('p-r').innerText = prov;
+            document.getElementById('p-n').innerText = document.getElementById('c-n').value.toUpperCase();
+            document.getElementById('p-i').innerText = document.getElementById('c-i').value.toUpperCase();
+            document.getElementById('p-c').innerText = document.getElementById('c-c').value;
+            document.getElementById('p-t').innerText = document.getElementById('c-t').value.toUpperCase();
+            document.getElementById('p-r').innerText = document.getElementById('c-r').value.toUpperCase();
             
-            const extraBox = document.getElementById('p-extra');
-            if (tel || note) {
-                extraBox.classList.remove('hidden');
-                document.getElementById('p-tel').innerText = tel || '-';
-                const noteBox = document.getElementById('p-note-box');
-                if (note) {
-                    noteBox.classList.remove('hidden');
-                    document.getElementById('p-note').innerText = note;
-                } else {
-                    noteBox.classList.add('hidden');
-                }
-            } else {
-                extraBox.classList.add('hidden');
-            }
+            const tel = document.getElementById('c-tel').value;
+            const note = document.getElementById('c-note').value;
+            if(tel) { document.getElementById('p-tel-box').classList.remove('hidden'); document.getElementById('p-tel').innerText = tel; } 
+            else document.getElementById('p-tel-box').classList.add('hidden');
+            
+            if(note) { document.getElementById('p-note-box').classList.remove('hidden'); document.getElementById('p-note').innerText = note; }
+            else document.getElementById('p-note-box').classList.add('hidden');
 
             if (typeof JsBarcode === 'function') {
-                JsBarcode("#p-b", "CLX" + Date.now(), { 
-                    format: "CODE128", 
-                    width: 2.2, 
-                    height: 70, 
-                    displayValue: true,
-                    fontSize: 14,
-                    fontOptions: "bold"
-                });
+                JsBarcode("#p-b", "CLX" + Date.now(), { format: "CODE128", width: 2.2, height: 70, displayValue: true, fontSize: 14, fontOptions: "bold" });
             }
-            
+            document.body.classList.remove('show-lotti');
             document.body.classList.add('mode-preview', 'show-corriere');
         };
 
-        onAuthStateChanged(auth, (u) => {
+        // CONTROLLO DI SINCRO CLOUD
+        onAuthStateChanged(auth, async (u) => {
             if(u) {
                 window.updateSync('on');
+
+                // Sincronizzazione Mittenti
+                unsubMittenti = onSnapshot(collection(db, 'artifacts', MASTER_ID, 'public', 'data', 'mittenti'), (s) => {
+                    window.mittentiCloud = s.docs.map(d => ({ id: d.id, ...d.data() }));
+                    window.popolaSelectMittenti();
+                    
+                    if(window.mittentiCloud.length > 0) {
+                        const defaultMit = window.mittentiCloud.find(x => x.isDefault) || window.mittentiCloud[0];
+                        if (!window.mittenteAttivo || !window.mittentiCloud.find(x => x.id === window.mittenteAttivo.id)) {
+                            window.mittenteAttivo = defaultMit;
+                            const s2 = document.getElementById('spedizione-seleziona-mittente');
+                            if(s2) s2.value = defaultMit.id;
+                            window.aggiornaLabelMittente();
+                        }
+                    } else {
+                        // Fallback se nessun mittente esiste nel database
+                        window.mittenteAttivo = { nome: "CLINNIX S.R.L.", indirizzo: "VIA DEL LAVORO, 10", cap: "80100", citta: "NAPOLI", prov: "NA" };
+                        window.aggiornaLabelMittente();
+                    }
+                });
+
                 unsubLotti = onSnapshot(collection(db, 'artifacts', MASTER_ID, 'public', 'data', 'items'), (s) => {
                     const cloudItems = s.docs.map(d => ({ id: d.id, ...d.data() }));
-                    if (cloudItems && cloudItems.length > 0) {
-                        window.lottiCloud = cloudItems;
-                        window.popolaLotti(window.lottiCloud);
-                    }
+                    if (cloudItems.length > 0) { window.lottiCloud = cloudItems; window.popolaLotti(window.lottiCloud); }
                 });
-                unsubRubrica = onSnapshot(collection(db, 'artifacts', MASTER_ID, 'public', 'data', 'informatori'), (s) => {
-                    const cloudContacts = s.docs.map(d => ({ id: d.id, ...d.data() }));
-                    if (cloudContacts && cloudContacts.length > 0) {
-                        window.rubricaCloud = cloudContacts;
-                        window.popolaRubrica(window.rubricaCloud);
-                    }
-                    if(document.getElementById('sub-tab-gestione') && !document.getElementById('sub-tab-gestione').classList.contains('hidden')) {
-                        window.renderRubricaList(document.getElementById('rubrica-search')?.value || '');
-                    }
+
+                let localInformatori = [];
+                let localCongressi = [];
+
+                const updateRubricaGlobale = () => {
+                    window.rubricaCloud = [...localInformatori, ...localCongressi];
+                    window.popolaRubrica(window.rubricaCloud);
+                };
+
+                unsubInformatori = onSnapshot(collection(db, 'artifacts', MASTER_ID, 'public', 'data', 'informatori'), (s) => {
+                    localInformatori = s.docs.map(d => ({ id: d.id, type: 'Informatore', ...d.data() }));
+                    updateRubricaGlobale();
                 });
-                unsubMittente = onSnapshot(doc(db, 'artifacts', MASTER_ID, 'public', 'data', 'config', 'mittente'), (docSnap) => {
-                    if (docSnap.exists()) {
-                        window.mittenteData = docSnap.data();
-                    } else {
-                        window.mittenteData = {
-                            nome: "CLINNIXPRO S.R.L.",
-                            indirizzo: "VIA DEL LAVORO, 10",
-                            cap: "80100",
-                            citta: "NAPOLI",
-                            prov: "NA",
-                            telefono: ""
-                        };
-                    }
-                    window.applyMittenteData();
+
+                unsubCongressi = onSnapshot(collection(db, 'artifacts', MASTER_ID, 'public', 'data', 'congressi'), (s) => {
+                    localCongressi = s.docs.map(d => ({ id: d.id, type: 'Congresso', ...d.data() }));
+                    updateRubricaGlobale();
                 });
             }
         });
-
         signInAnonymously(auth);
     </script>
 
     <style>
         :root {
-            --brand: #002d5a;
-            --secondary: #007bff;
-            --accent: #20c997;
-            --bg: #f4f7fa;
+            --brand: #002d5a; --secondary: #007bff; --bg: #f4f7fa;
+            --page-pad-top: 10mm; --page-pad-left: 5mm;
         }
         body { background-color: var(--bg); font-family: 'Inter', sans-serif; }
-        
-        header { background-color: var(--brand); color: white; height: 64px; display: flex; align-items: center; padding: 0 24px; justify-content: space-between; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
-        .logo-text { font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 1.25rem; letter-spacing: -0.5px; }
-        .logo-sub { font-weight: 400; color: rgba(255,255,255,0.6); }
-
-        .dash-card {
-            background: white; border-radius: 20px; padding: 32px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
-            transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
-            position: relative; overflow: hidden; border: 1px solid rgba(0,0,0,0.02);
-            text-align: left;
-        }
-        .dash-card::before {
-            content: ''; position: absolute; top: 0; right: 0; width: 60px; height: 60px;
-            background: radial-gradient(circle at top right, rgba(0,123,255,0.08), transparent 70%);
-            border-radius: 0 0 0 100%;
-        }
-        .dash-card:hover { transform: translateY(-6px); box-shadow: 0 15px 35px rgba(0,0,0,0.1); border-color: var(--secondary); }
-        .card-icon { width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center; margin-bottom: 24px; font-size: 1.5rem; }
-
-        .f-input { width: 100%; background: #f8fafc; border: 2px solid #edf2f7; border-radius: 14px; padding: 12px 16px; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; outline: none; }
+        header { background-color: var(--brand); color: white; height: 64px; display: flex; align-items: center; padding: 0 24px; justify-content: space-between; }
+        .logo-text { font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 1.25rem; }
+        .dash-card { background: white; border-radius: 20px; padding: 32px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); text-align: left; }
+        .f-input { width: 100%; background: #f8fafc; border: 2px solid #edf2f7; border-radius: 14px; padding: 12px 16px; font-weight: 600; font-size: 0.9rem; outline: none; }
         .f-input:focus { border-color: var(--secondary); background: white; }
 
-        /* AREA DI STAMPA LOTTI A4 */
-        #print-lotti-area {
-            display: none;
-            width: 210mm;
-            height: 297mm;
-            background: white;
-            box-sizing: border-box;
-            overflow: hidden;
-            padding: 10mm 5mm;
-        }
-
-        .grid-labels {
-            display: grid;
-            grid-template-columns: repeat(10, 1fr);
-            grid-template-rows: repeat(13, 1fr);
-            width: 100%;
-            height: 100%;
-            box-sizing: border-box;
-            gap: 0;
-        }
-        
-        /* Intestazione integrata nella prima riga (span 4 colonne) */
-        .etichetta-intestazione-unificata {
-            grid-column: span 4;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            font-family: 'Montserrat', sans-serif;
-            color: #002d5a;
-            text-transform: uppercase;
-            border: 0.1mm dashed rgba(0,45,90,0.15);
-            text-align: center;
-            padding: 2mm;
-            background-color: #f8fafc;
-            box-sizing: border-box;
-        }
-        
-        /* Nome del prodotto significativamente più grande */
-        .etichetta-intestazione-unificata .titolo-prodotto {
-            font-weight: 800;
-            font-size: 15pt;
-            line-height: 1.1;
-            word-break: break-all;
-        }
-        
-        /* Info aggiuntiva Lotto + Scadenza */
-        .etichetta-intestazione-unificata .scadenza-info {
-            font-weight: 700;
-            font-size: 8.5pt;
-            margin-top: 1.5mm;
-            letter-spacing: 0.5px;
-        }
-
-        /* Celle della griglia visibili a schermo come guida */
-        .cell {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            font-family: 'Times New Roman', serif;
-            padding: 1mm;
-            overflow: hidden;
-            box-sizing: border-box;
-            border: 0.1mm dashed rgba(0,0,0,0.06); 
-        }
-        .cell p { margin: 0; color: black; line-height: 1.15; }
-
-        /* INTERFACCIA ANTEPRIMA */
-        #preview-bar {
-            display: none; position: fixed; top: 0; left: 0; right: 0;
-            background: #1a202c; height: 70px; z-index: 1000;
-            justify-content: center; gap: 30px; align-items: center; padding: 0 20px;
-        }
+        /* ======== GESTIONE ANTEPRIME E INTERFACCIA ======== */
+        #preview-bar { display: none; position: fixed; top: 0; left: 0; right: 0; background: #1a202c; height: 70px; z-index: 1000; justify-content: center; gap: 30px; align-items: center; }
         body.mode-preview #preview-bar { display: flex; }
         body.mode-preview header, body.mode-preview main { display: none !important; }
+
+        #print-lotti-area, #print-corriere-area { display: none !important; }
+        body.show-lotti #print-lotti-area { display: block !important; margin: 90px auto; box-shadow: 0 0 50px rgba(0,0,0,0.4); }
         
-        /* Gestione Visibilità Sezioni - Isolate per Evitare Conflitti */
-        #print-lotti-area, #print-corriere-area {
-            display: none;
-        }
-
-        body.show-lotti #print-lotti-area {
-            display: block !important;
-            margin: 90px auto;
-            box-shadow: 0 0 50px rgba(0,0,0,0.4);
-        }
-        body.show-lotti #print-corriere-area {
-            display: none !important;
-        }
-
         body.show-corriere #print-corriere-area { 
-            display: flex !important;
-            flex-direction: column;
-            justify-content: space-between;
-            background: white;
-            width: 148mm;
-            height: 210mm;
-            margin: 90px auto;
-            padding: 16mm;
-            border: 4px solid #000;
-            box-shadow: 0 0 50px rgba(0,0,0,0.4);
-            box-sizing: border-box;
-        }
-        body.show-corriere #print-lotti-area {
-            display: none !important;
+            display: flex !important; flex-direction: column; justify-content: space-between;
+            background: white; width: 148mm; height: 210mm; margin: 90px auto; padding: 16mm;
+            border: 4px solid #000; box-shadow: 0 0 50px rgba(0,0,0,0.4); box-sizing: border-box;
         }
 
-        /* DRIVER DI STAMPA FISICO: RIMOZIONE TOTALE DELLE LINEE E ISOLAMENTO */
+        /* ======== GRIGLIA LOTTI FUSTELLATI CON ACCOPPIAMENTO ======== */
+        #print-lotti-area { width: 210mm; height: 297mm; background: white; box-sizing: border-box; padding: var(--page-pad-top) var(--page-pad-left); }
+        .grid-labels {
+            display: grid;
+            grid-template-columns: 1fr 1fr 2mm 1fr 1fr 2mm 1fr 1fr 2mm 1fr 1fr 2mm 1fr 1fr;
+            grid-template-rows: repeat(14, 1fr);
+            width: 100%; height: 100%; box-sizing: border-box; gap: 0;
+        }
+        .cell-fustellata { background-color: #fafafa; border: 0.5px solid #e2e8f0; border-radius: 2px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        .cell { text-align: center; font-family: 'Times New Roman', serif; padding: 0.5mm; }
+        .cell p { margin: 0; color: black; line-height: 1.1; }
+        
+        .t-label { font-size: 8pt; color: #64748b; text-transform: uppercase; font-weight: 700; }
+        .t-val { font-size: 11pt; font-weight: 900; margin-bottom: 1.5mm; color: #0f172a; }
+
+        .etichetta-intestazione-unificata { font-family: 'Montserrat', sans-serif; color: #002d5a; text-transform: uppercase; text-align: center; padding: 2mm; }
+        .etichetta-intestazione-unificata .titolo-prodotto { font-weight: 800; font-size: 14pt; line-height: 1.1; }
+        .etichetta-intestazione-unificata .scadenza-info { font-weight: 700; font-size: 8pt; margin-top: 1mm; }
+
+        /* ======== PRINT STYLES ======== */
         @media print {
-            .no-print, #preview-bar, header, main {
-                display: none !important;
-            }
-            
-            html, body {
-                display: block !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                height: 100% !important;
-                width: 100% !important;
-                background: white !important;
-            }
-            
-            #print-lotti-area, #print-corriere-area {
-                display: none !important;
-            }
-            
-            /* Stampa Lotti */
-            body.show-lotti #print-lotti-area {
-                display: block !important;
-                margin: 0 !important;
-                padding: 10mm 5mm !important;
-                width: 210mm !important;
-                height: 297mm !important;
-                box-sizing: border-box !important;
-            }
-            
-            /* Stampa Corriere con etichetta ad altissima definizione */
-            body.show-corriere #print-corriere-area { 
-                display: flex !important;
-                flex-direction: column !important;
-                justify-content: space-between !important;
-                margin: 0 auto !important; 
-                width: 148mm !important;
-                height: 210mm !important; 
-                border: none !important;
-                box-sizing: border-box !important;
-                padding: 16mm !important;
-            }
-            
-            /* Rimozione dei bordi delle etichette in stampa */
-            .cell { 
-                border: none !important; 
-                border-width: 0 !important; 
-                outline: none !important;
-                box-shadow: none !important;
-            }
-            .grid-labels {
-                border: none !important;
-                gap: 0 !important;
-            }
-            .etichetta-intestazione-unificata {
-                border: none !important;
-                background-color: transparent !important;
-                color: black !important;
-            }
+            .no-print, #preview-bar, header, main, #modal-nuovo-lotto { display: none !important; }
+            @page { margin: 0; size: A4; }
+            html, body { display: block !important; margin: 0 !important; padding: 0 !important; background: white !important; }
+            #print-lotti-area, #print-corriere-area { display: none !important; }
+            body.show-lotti #print-lotti-area { display: block !important; margin: 0 !important; width: 210mm !important; height: 297mm !important; box-sizing: border-box !important; }
+            body.show-corriere #print-corriere-area { display: flex !important; margin: 0 auto !important; width: 148mm !important; height: 210mm !important; border: none !important; padding: 16mm !important; }
+            .cell-fustellata { background-color: transparent !important; border: none !important; }
         }
     </style>
 </head>
 <body>
 
-    <!-- BARRA ANTEPRIMA -->
     <div id="preview-bar" class="no-print">
-        <button onclick="window.closePreview()" class="text-white/60 hover:text-white font-bold flex items-center gap-2">
-            <i class="fa-solid fa-arrow-left"></i> ESCI
-        </button>
-        <button onclick="window.print()" class="bg-emerald-500 hover:bg-emerald-400 text-white px-10 py-3 rounded-2xl font-black shadow-lg shadow-emerald-500/20 transition-all scale-105 flex items-center gap-2">
-            <i class="fa-solid fa-print"></i> STAMPA ORA
-        </button>
+        <button onclick="window.closePreview()" class="text-white/60 hover:text-white font-bold flex items-center gap-2"><i class="fa-solid fa-arrow-left"></i> ESCI</button>
+        <button onclick="window.print()" class="bg-emerald-500 hover:bg-emerald-400 text-white px-10 py-3 rounded-2xl font-black shadow-lg flex items-center gap-2"><i class="fa-solid fa-print"></i> STAMPA ORA</button>
     </div>
 
-    <div id="cloud-status" class="fixed bottom-6 right-6 bg-slate-900 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-lg border border-slate-800 transition-opacity duration-300 opacity-0 pointer-events-none z-[2000] no-print"></div>
+    <div id="cloud-status" class="fixed bottom-6 right-6 bg-slate-900 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-opacity duration-300 opacity-0 pointer-events-none z-[2000] no-print"></div>
 
-    <!-- HEADER -->
     <header class="no-print">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-print text-accent text-xl"></i>
-            <span class="logo-text">ClinnixPro <span class="logo-sub">| Print Station</span></span>
+            <span class="logo-text">ClinnixPro <span class="font-normal opacity-60">| Print Station</span></span>
         </div>
-        <div class="flex items-center gap-6">
+        <div class="flex items-center gap-4">
             <div id="sync-badge"></div>
-            <a id="btn-back-to-app" href="index.html?pin=12345" class="px-5 py-2 rounded-xl border-2 border-white/20 hover:border-white/60 hover:bg-white/5 text-white font-bold text-xs transition-all flex items-center gap-2 uppercase tracking-wide">
-                <i class="fa-solid fa-boxes-stacked"></i> App Principale
-            </a>
+            <a id="btn-back-to-app" href="#" class="px-4 py-2 rounded-xl border border-white/20 text-white font-bold text-xs uppercase flex items-center gap-2"><i class="fa-solid fa-boxes-stacked"></i> App</a>
         </div>
     </header>
 
-    <!-- DASHBOARD PRINCIPALE -->
-    <main class="no-print max-w-6xl mx-auto px-4 md:px-6 py-8 md:py-16 text-center">
+    <main class="no-print max-w-6xl mx-auto px-4 py-8 text-center">
         <div id="dash-main">
-            <h2 class="text-4xl font-black text-slate-800 mb-4 tracking-tight">Cosa vuoi stampare?</h2>
-            <p class="text-slate-400 text-lg mb-16">Seleziona il modulo di stampa desiderato per procedere.</p>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-10 max-w-4xl mx-auto">
-                <button onclick="window.openTab('lotti')" class="dash-card group">
-                    <div class="card-icon bg-emerald-50 text-emerald-500 group-hover:bg-emerald-500 group-hover:text-white transition-all">
-                        <i class="fa-solid fa-tags"></i>
-                    </div>
-                    <h3 class="text-2xl font-black text-slate-800 mb-2">Stampa Etichette Lotti</h3>
-                    <p class="text-slate-500 text-sm leading-relaxed mb-6">Genera griglia su foglio fustellato (10×13) con intestazione unificata per il riconoscimento.</p>
-                    <div class="text-emerald-500 font-bold text-sm flex items-center gap-1 group-hover:gap-2 transition-all">
-                        Avvia modulo <i class="fa-solid fa-arrow-right"></i>
-                    </div>
+            <h2 class="text-3xl font-black text-slate-800 mb-8">Modulo di Stampa</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+                <button onclick="window.openTab('lotti')" class="dash-card group hover:border-emerald-500 transition-all">
+                    <div class="w-14 h-14 bg-emerald-50 text-emerald-500 group-hover:bg-emerald-500 group-hover:text-white rounded-xl flex items-center justify-center text-xl mb-4"><i class="fa-solid fa-tags"></i></div>
+                    <h3 class="text-xl font-black text-slate-800 mb-2">Stampa Etichette Lotti</h3>
+                    <p class="text-slate-500 text-xs">Foglio fustellato accoppiato a gruppi di 2 colonne con spazi intermedi.</p>
                 </button>
-
-                <button onclick="window.openTab('corriere')" class="dash-card group">
-                    <div class="card-icon bg-blue-50 text-blue-500 group-hover:bg-blue-500 group-hover:text-white transition-all">
-                        <i class="fa-solid fa-truck-fast"></i>
-                    </div>
-                    <h3 class="text-2xl font-black text-slate-800 mb-2">Stampa Etichette Corriere</h3>
-                    <p class="text-slate-500 text-sm leading-relaxed mb-6">Genera lettera vettura con testi giganti ad altissima leggibilità per colli e spedizioni.</p>
-                    <div class="text-blue-500 font-bold text-sm flex items-center gap-1 group-hover:gap-2 transition-all">
-                        Avvia modulo <i class="fa-solid fa-arrow-right"></i>
-                    </div>
+                <button onclick="window.openTab('corriere')" class="dash-card group hover:border-blue-500 transition-all">
+                    <div class="w-14 h-14 bg-blue-50 text-blue-500 group-hover:bg-blue-500 group-hover:text-white rounded-xl flex items-center justify-center text-xl mb-4"><i class="fa-solid fa-truck-fast"></i></div>
+                    <h3 class="text-xl font-black text-slate-800 mb-2">Stampa Lettera Vettura</h3>
+                    <p class="text-slate-500 text-xs">Etichetta corriere gigante con mittente predefinito configurabile.</p>
                 </button>
             </div>
         </div>
 
-        <!-- MODULO 1: LOTTI -->
-        <div id="tab-lotti" class="hidden max-w-2xl mx-auto px-1">
-            <div class="bg-white rounded-[32px] shadow-2xl overflow-hidden border border-slate-100">
-                <div class="bg-slate-900 p-10 text-white flex items-center justify-between">
-                    <div class="text-left">
-                        <h2 class="text-2xl font-black">Stampa lotti e scadenza</h2>
-                        <span class="text-accent text-[10px] font-black uppercase tracking-[0.2em]">Allineamento 10x13</span>
-                    </div>
-                    <button onclick="window.goHome()" class="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 transition-all flex items-center justify-center">
-                        <i class="fa-solid fa-xmark"></i>
+        <div id="tab-lotti" class="hidden max-w-xl mx-auto">
+            <div class="bg-white rounded-[2rem] shadow-2xl overflow-hidden text-left border border-slate-100">
+                <div class="bg-[#111827] px-8 py-8 text-white relative">
+                    <h2 class="font-black text-3xl">Stampa lotti e scadenza</h2>
+                    <div class="text-emerald-400 text-xs font-bold tracking-[0.2em] mt-2 uppercase">Allineamento 10x13</div>
+                    <button onclick="window.goHome()" class="absolute top-8 right-8 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors">
+                        <i class="fa-solid fa-xmark text-xl"></i>
                     </button>
                 </div>
-                <div class="p-6 md:p-10 space-y-8">
-                    
-                    <div class="text-left space-y-2">
-                        <div class="flex items-center justify-between">
-                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Prodotto</label>
-                            
-                            <button type="button" onclick="window.apriNuovoProdottoLotto()" class="text-xs font-black text-emerald-600 hover:text-emerald-700 flex items-center gap-1 transition-colors bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-100 uppercase tracking-wide">
-                                <i class="fa-solid fa-plus"></i> Nuovo Prodotto/Lotto
-                            </button>
-                        </div>
-                        <select id="select-lotti" onchange="window.syncFields()" class="f-input appearance-none cursor-pointer">
-                            <option value="">Caricamento...</option>
-                        </select>
-                    </div>
-
-                    <form onsubmit="window.viewLotti(event)" class="space-y-6 pt-6 border-t border-slate-100 text-left">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div class="space-y-1">
-                                <label class="text-[10px] font-bold text-slate-400 uppercase">Prodotto Selezionato</label>
-                                <input type="text" id="i-p" readonly class="f-input bg-slate-100 cursor-not-allowed font-extrabold text-slate-700" placeholder="Prodotto">
+                <div class="p-8">
+                    <form onsubmit="window.viewLotti(event)" class="space-y-6">
+                        <!-- Prodotto Select -->
+                        <div>
+                            <div class="flex justify-between items-center mb-3">
+                                <label class="text-xs font-black text-slate-500 uppercase tracking-widest">Prodotto</label>
+                                <button type="button" onclick="window.openNuovoLottoModal()" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-600 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wide transition-colors flex items-center gap-1">
+                                    <i class="fa-solid fa-plus"></i> Nuovo Prodotto/Lotto
+                                </button>
                             </div>
-                            <div class="space-y-1">
-                                <label class="text-[10px] font-bold text-slate-400 uppercase">Lotto Attivo</label>
-                                <input type="text" id="i-l" readonly class="f-input bg-slate-100 cursor-not-allowed font-extrabold text-slate-700" placeholder="Lotto">
-                            </div>
-                        </div>
-                        <div class="space-y-1">
-                            <label class="text-[10px] font-bold text-slate-400 uppercase">Scadenza</label>
-                            <input type="text" id="i-e" readonly class="f-input bg-slate-100 cursor-not-allowed font-extrabold text-slate-700" placeholder="Scadenza">
+                            <select id="select-lotti" onchange="window.syncFields()" class="w-full bg-[#f8fafc] border-2 border-slate-100 p-4 rounded-2xl font-bold text-slate-700 outline-none focus:border-blue-500 transition-colors">
+                                <option value="">-- Seleziona Prodotto --</option>
+                            </select>
                         </div>
 
-                        <div class="bg-blue-50/50 p-6 rounded-2xl grid grid-cols-1 md:grid-cols-2 gap-6 border border-blue-100/30">
-                            <div class="text-left space-y-1">
-                                <label class="text-[10px] font-black text-blue-700 uppercase">Quantità Etichette</label>
-                                <input type="number" id="f-q" required min="1" max="126" value="126" class="f-input">
+                        <!-- Readonly Prodotto & Lotto -->
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Prodotto Selezionato</label>
+                                <input type="text" id="i-p" readonly placeholder="Prodotto" class="w-full bg-[#f8fafc] border-2 border-slate-100 p-4 rounded-2xl font-bold text-slate-500 outline-none">
                             </div>
-                            <div class="text-left space-y-1">
-                                <label class="text-[10px] font-black text-blue-700 uppercase">Inizia alla Cella N°</label>
-                                <input type="number" id="f-s" required min="5" max="130" value="5" class="f-input">
-                                <p class="text-[8px] font-bold text-blue-500 mt-1 uppercase">Celle 1-4 riservate all'intestazione</p>
+                            <div>
+                                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Lotto Attivo</label>
+                                <input type="text" id="i-l" readonly placeholder="Lotto" class="w-full bg-[#f8fafc] border-2 border-slate-100 p-4 rounded-2xl font-bold text-slate-500 outline-none">
                             </div>
                         </div>
 
-                        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-5 rounded-2xl shadow-xl shadow-emerald-500/20 transition-all text-lg uppercase tracking-wider block text-center">
-                            Genera Anteprima
+                        <!-- Readonly Scadenza -->
+                        <div>
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Scadenza</label>
+                            <input type="text" id="i-e" readonly placeholder="Scadenza" class="w-full bg-[#f8fafc] border-2 border-slate-100 p-4 rounded-2xl font-bold text-slate-500 outline-none">
+                        </div>
+
+                        <!-- Config Box -->
+                        <div class="bg-[#f8fafc] border-2 border-slate-100 p-6 rounded-[1.5rem]">
+                            <div class="grid grid-cols-2 gap-6">
+                                <div>
+                                    <label class="text-xs font-black text-blue-600 uppercase tracking-widest mb-3 block">Quantità Etichette</label>
+                                    <input type="number" id="f-q" value="126" max="136" class="w-full bg-white border-2 border-slate-100 p-4 rounded-2xl font-black text-lg outline-none focus:border-blue-500 transition-colors text-slate-800">
+                                </div>
+                                <div>
+                                    <label class="text-xs font-black text-blue-600 uppercase tracking-widest mb-3 block">Inizia alla Cella N°</label>
+                                    <input type="number" id="f-s" value="5" min="5" class="w-full bg-white border-2 border-slate-100 p-4 rounded-2xl font-black text-lg outline-none focus:border-blue-500 transition-colors text-slate-800">
+                                    <span class="text-[9px] font-black text-blue-500 mt-3 block uppercase tracking-widest">Celle 1-4 riservate all'intestazione</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Submit -->
+                        <button type="submit" class="w-full bg-[#059669] hover:bg-[#047857] text-white font-black text-xl py-5 rounded-2xl shadow-lg transition-transform active:scale-95 tracking-wide mt-2">
+                            GENERA ANTEPRIMA
                         </button>
                     </form>
                 </div>
             </div>
         </div>
 
-        <!-- MODULO 2: CORRIERE -->
-        <div id="tab-corriere" class="hidden max-w-2xl mx-auto px-1">
-            <div class="bg-white rounded-[32px] shadow-2xl overflow-hidden border border-slate-100 text-left">
-                <div class="bg-blue-600 p-8 text-white flex items-center justify-between">
-                    <div>
-                        <h2 class="text-2xl font-black">Modulo Corriere</h2>
-                        <span class="text-blue-200 text-[10px] font-black uppercase tracking-[0.2em]">Spedizioni e Rubrica</span>
-                    </div>
-                    <button onclick="window.goHome()" class="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 transition-all flex items-center justify-center">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
+        <div id="tab-corriere" class="hidden max-w-2xl mx-auto">
+            <div class="bg-white rounded-3xl shadow-xl overflow-hidden text-left">
+                <div class="bg-blue-600 p-6 text-white flex justify-between items-center">
+                    <h2 class="font-black text-lg">Modulo Corriere</h2>
+                    <button onclick="window.goHome()" class="hover:text-red-300"><i class="fa-solid fa-xmark fa-lg"></i></button>
                 </div>
-
-                <div class="flex border-b border-slate-100 bg-slate-50 px-6 pt-2 overflow-x-auto whitespace-nowrap">
-                    <button id="btn-sub-sped" onclick="window.showCorriereSubTab('spedizione')" class="px-4 py-3 text-xs font-black border-b-2 border-secondary text-secondary transition-all">Nuova Spedizione</button>
-                    <button id="btn-sub-gest" onclick="window.showCorriereSubTab('gestione')" class="px-4 py-3 text-xs font-black border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all">Rubrica Clienti</button>
-                    <button id="btn-sub-mitt" onclick="window.showCorriereSubTab('mittente')" class="px-4 py-3 text-xs font-black border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all">Dati Mittente</button>
+                <div class="flex border-b bg-slate-50 px-4">
+                    <button id="btn-sub-sped" onclick="window.showCorriereSubTab('spedizione')" class="px-4 py-3 text-xs font-black border-b-2 border-blue-600 text-blue-600">Nuova Spedizione</button>
+                    <button id="btn-sub-gest" onclick="window.showCorriereSubTab('gestione')" class="px-4 py-3 text-xs font-bold text-slate-500">Rubrica Clienti</button>
+                    <button id="btn-sub-mit" onclick="window.showCorriereSubTab('mittente')" class="px-4 py-3 text-xs font-bold text-slate-500"><i class="fa-solid fa-gear mr-1"></i> Mittenti</button>
                 </div>
-
-                <div class="p-4 md:p-8">
-                    <!-- SOTTO-TAB: NUOVA SPEDIZIONE -->
-                    <div id="sub-tab-spedizione" class="space-y-6">
-                        <div class="text-left space-y-1">
-                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Carica da Rubrica</label>
-                            <select id="select-rubrica" onchange="window.syncRubrica()" class="f-input">
-                                <option value="">Caricamento...</option>
-                            </select>
+                
+                <div class="p-6">
+                    <!-- Spedizione -->
+                    <div id="sub-tab-spedizione" class="space-y-4">
+                        <div class="bg-blue-50/50 p-3 rounded-xl border border-blue-100 mb-2">
+                            <label class="text-[10px] font-black text-blue-800 uppercase tracking-widest block mb-1">Seleziona Mittente Spedizione</label>
+                            <select id="spedizione-seleziona-mittente" onchange="window.cambiaMittenteAttivo(this.value)" class="w-full bg-white border border-blue-200 p-2 rounded-lg font-bold text-sm outline-none text-blue-900 shadow-sm"></select>
                         </div>
-                        <form onsubmit="window.viewCorriere(event)" class="space-y-4 pt-4 border-t border-slate-100">
-                            <input type="text" id="c-n" required class="f-input uppercase font-bold text-slate-800" placeholder="Destinatario / Ragione Sociale">
-                            <input type="text" id="c-i" required class="f-input uppercase text-slate-700" placeholder="Indirizzo">
-                            <div class="grid grid-cols-3 gap-4">
-                                <input type="text" id="c-c" required class="f-input text-slate-700" placeholder="CAP">
-                                <input type="text" id="c-t" required class="f-input uppercase text-slate-700" placeholder="Città">
-                                <input type="text" id="c-r" maxlength="2" class="f-input uppercase text-slate-700 font-bold" placeholder="PR">
+                        
+                        <select id="select-rubrica" onchange="window.syncRubrica()" class="f-input"><option>Caricamento rubrica...</option></select>
+                        <form onsubmit="window.viewCorriere(event)" class="space-y-3">
+                            <input type="text" id="c-n" required class="f-input font-bold" placeholder="Destinatario">
+                            <input type="text" id="c-i" required class="f-input" placeholder="Indirizzo">
+                            <div class="grid grid-cols-3 gap-3">
+                                <input type="text" id="c-c" required class="f-input" placeholder="CAP"><input type="text" id="c-t" required class="f-input" placeholder="Città"><input type="text" id="c-r" maxlength="2" class="f-input font-bold" placeholder="PR">
                             </div>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div class="space-y-1">
-                                    <label class="text-[10px] font-bold text-slate-400 uppercase">Telefono</label>
-                                    <input type="text" id="c-tel" class="f-input text-slate-700 font-bold" placeholder="Numero di Telefono">
-                                </div>
-                                <div class="space-y-1">
-                                    <label class="text-[10px] font-bold text-slate-400 uppercase">Note Corriere (Opzionali)</label>
-                                    <input type="text" id="c-note" class="f-input text-slate-700" placeholder="es. Consegna dopo le 14">
-                                </div>
-                            </div>
-
-                            <div class="grid grid-cols-2 gap-4 pt-2 border-t border-slate-50">
-                                <button type="button" onclick="window.salvaSpedizioneInRubrica(false)" class="py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2">
-                                    <i class="fa-solid fa-user-plus text-slate-400"></i> Salva Nuovo
-                                </button>
-                                <button type="button" id="btn-update-from-sped" onclick="window.salvaSpedizioneInRubrica(true)" class="py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 opacity-50 cursor-not-allowed" disabled>
-                                    <i class="fa-solid fa-user-pen text-slate-400"></i> Aggiorna Selezionato
-                                </button>
-                            </div>
-
-                            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-5 rounded-2xl shadow-xl shadow-blue-500/10 transition-all text-lg uppercase tracking-wide">
-                                Crea Etichetta Spedizione
-                            </button>
+                            <div class="grid grid-cols-2 gap-3"><input type="text" id="c-tel" class="f-input" placeholder="Telefono (Opzionale)"><input type="text" id="c-note" class="f-input" placeholder="Note Spedizione (Opzionale)"></div>
+                            <button type="submit" class="w-full bg-blue-600 text-white font-black py-4 rounded-xl text-sm mt-2">GENERA ETICHETTA CORRIERE</button>
                         </form>
                     </div>
 
-                    <!-- SOTTO-TAB: GESTIONE RUBRICA -->
-                    <div id="sub-tab-gestione" class="hidden space-y-6">
-                        <div id="rubrica-form-box" class="bg-slate-50 border border-slate-200 rounded-2xl p-6 hidden space-y-4">
-                            <h4 id="rubrica-form-title" class="text-xs font-black text-slate-600 uppercase tracking-wider">Aggiungi Nuovo Contatto</h4>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <input type="text" id="m-nome" class="f-input uppercase font-bold" placeholder="Nome / Ragione Sociale">
-                                <input type="text" id="m-tel" class="f-input font-bold" placeholder="Telefono (es. 340123456)">
+                    <!-- Gestione Rubrica -->
+                    <div id="sub-tab-gestione" class="hidden">
+                        <div id="rubrica-form-box" class="bg-slate-50 border border-slate-200 rounded-xl p-4 hidden mb-4 space-y-3">
+                            <h4 id="rubrica-form-title" class="text-xs font-black text-slate-700">Nuovo</h4>
+                            <div class="grid grid-cols-2 gap-2">
+                                <input type="text" id="m-nome" class="f-input p-2 text-xs font-bold" placeholder="Nome">
+                                <input type="text" id="m-tel" class="f-input p-2 text-xs" placeholder="Tel">
                             </div>
-                            <input type="text" id="m-ind" class="f-input uppercase" placeholder="Indirizzo">
-                            <div class="grid grid-cols-3 gap-4">
-                                <input type="text" id="m-cap" class="f-input" placeholder="CAP">
-                                <input type="text" id="m-citta" class="f-input uppercase" placeholder="Città">
-                                <input type="text" id="m-prov" maxlength="2" class="f-input uppercase" placeholder="PR">
+                            <input type="text" id="m-ind" class="f-input p-2 text-xs" placeholder="Indirizzo">
+                            <div class="grid grid-cols-3 gap-2">
+                                <input type="text" id="m-cap" class="f-input p-2 text-xs" placeholder="CAP">
+                                <input type="text" id="m-citta" class="f-input p-2 text-xs" placeholder="Città">
+                                <input type="text" id="m-prov" class="f-input p-2 text-xs" placeholder="PR">
                             </div>
-                            <textarea id="m-note" class="f-input" placeholder="Note Spedizione Opzionali"></textarea>
-                            <div class="flex justify-end gap-3 pt-2">
-                                <button type="button" onclick="window.annullaModifica()" class="px-4 py-2.5 bg-slate-200 hover:bg-slate-300 rounded-xl text-xs font-bold transition-all">Annulla</button>
-                                <button type="button" onclick="window.salvaContatto()" class="px-5 py-2 bg-secondary hover:bg-blue-600 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-500/20">Salva Contatto</button>
+                            <input type="text" id="m-note" class="f-input p-2 text-xs" placeholder="Note">
+                            <div class="flex justify-end gap-2 pt-1">
+                                <button type="button" onclick="window.annullaModifica()" class="px-3 py-1 bg-slate-200 text-xs font-bold rounded">Annulla</button>
+                                <button type="button" onclick="window.salvaContatto()" class="px-3 py-1 bg-blue-600 text-white text-xs font-bold rounded">Salva</button>
                             </div>
                         </div>
-
-                        <div class="flex flex-col md:flex-row gap-4 items-center justify-between border-b border-slate-100 pb-4">
-                            <div class="relative w-full md:w-72">
-                                <input type="text" id="rubrica-search" oninput="window.renderRubricaList(this.value)" class="w-full pl-10 pr-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-2xl text-xs outline-none focus:border-secondary font-semibold" placeholder="Cerca cliente per nome o città...">
-                                <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-                            </div>
-                            <button onclick="window.avviaNuovoContatto()" class="w-full md:w-auto px-5 py-3 bg-secondary hover:bg-blue-600 text-white rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-blue-500/10 transition-all">
-                                <i class="fa-solid fa-plus"></i> Nuovo Contatto
-                            </button>
+                        <div class="mb-4 flex gap-2">
+                            <input type="text" oninput="window.renderRubricaList(this.value)" class="f-input text-xs p-2" placeholder="Cerca in rubrica...">
+                            <button type="button" onclick="window.avviaNuovoContatto()" class="bg-secondary text-white text-xs font-bold px-4 py-2 rounded-xl whitespace-nowrap"><i class="fa-solid fa-plus"></i> Aggiungi</button>
                         </div>
-                        <div id="rubrica-list-container" class="space-y-3 max-h-[350px] overflow-y-auto pr-1"></div>
+                        <div id="rubrica-list-container" class="space-y-2 max-h-[300px] overflow-y-auto"></div>
                     </div>
 
-                    <!-- NUOVO SOTTO-TAB: CONFIGURAZIONE MITTENTE -->
-                    <div id="sub-tab-mittente" class="hidden space-y-6">
-                        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-6 space-y-4">
-                            <h4 class="text-xs font-black text-slate-600 uppercase tracking-wider">Dati Mittente Predefiniti</h4>
-                            <p class="text-[11px] text-slate-400">Inserisci qui i dati della tua azienda. Verranno memorizzati nel Cloud e stampati automaticamente nell'intestazione di ogni etichetta.</p>
+                    <!-- Impostazioni Mittente -->
+                    <div id="sub-tab-mittente" class="hidden space-y-4">
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                            <div class="flex justify-between items-center">
+                                <h3 class="text-xs font-black text-slate-700 uppercase tracking-wide"><i class="fa-solid fa-id-card"></i> Gestione Mittenti</h3>
+                                <button type="button" onclick="window.nuovoMittente()" class="text-blue-600 text-xs font-bold bg-blue-100 px-2 py-1 rounded hover:bg-blue-200"><i class="fa-solid fa-plus"></i> Nuovo</button>
+                            </div>
                             
-                            <div class="space-y-4">
-                                <div class="space-y-1">
-                                    <label class="text-[10px] font-bold text-slate-400 uppercase">Ragione Sociale / Nome</label>
-                                    <input type="text" id="mit-nome" class="f-input uppercase font-extrabold" placeholder="Es. CLINNIXPRO S.R.L.">
-                                </div>
-                                <div class="space-y-1">
-                                    <label class="text-[10px] font-bold text-slate-400 uppercase">Indirizzo di Spedizione</label>
-                                    <input type="text" id="mit-ind" class="f-input uppercase" placeholder="Es. VIA DEL LAVORO, 10">
-                                </div>
-                                <div class="grid grid-cols-3 gap-4">
-                                    <div class="space-y-1">
-                                        <label class="text-[10px] font-bold text-slate-400 uppercase">CAP</label>
-                                        <input type="text" id="mit-cap" class="f-input" placeholder="Es. 80100">
-                                    </div>
-                                    <div class="space-y-1">
-                                        <label class="text-[10px] font-bold text-slate-400 uppercase">Città</label>
-                                        <input type="text" id="mit-citta" class="f-input uppercase" placeholder="Es. NAPOLI">
-                                    </div>
-                                    <div class="space-y-1">
-                                        <label class="text-[10px] font-bold text-slate-400 uppercase">PR</label>
-                                        <input type="text" id="mit-prov" maxlength="2" class="f-input uppercase font-bold" placeholder="Es. NA">
-                                    </div>
-                                </div>
-                                <div class="space-y-1">
-                                    <label class="text-[10px] font-bold text-slate-400 uppercase">Telefono (Opzionale)</label>
-                                    <input type="text" id="mit-tel" class="f-input" placeholder="Es. 081 1234567">
-                                </div>
-                            </div>
+                            <select id="gestione-seleziona-mittente" onchange="window.caricaCampiMittenteForm(this.value)" class="f-input text-sm">
+                                <option value="">-- Seleziona un mittente da modificare --</option>
+                            </select>
 
-                            <button type="button" onclick="window.salvaMittenteCloud()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-xl text-xs uppercase tracking-wider transition-all shadow-lg shadow-blue-500/10 flex items-center justify-center gap-2">
-                                <i class="fa-solid fa-floppy-disk"></i> Salva e Applica Mittente
-                            </button>
+                            <input type="hidden" id="mit-id">
+                            <input type="text" id="mit-nome" class="f-input uppercase font-bold" placeholder="Ragione Sociale Mittente">
+                            <input type="text" id="mit-ind" class="f-input uppercase" placeholder="Indirizzo Mittente">
+                            <div class="grid grid-cols-3 gap-3">
+                                <input type="text" id="mit-cap" class="f-input" placeholder="CAP">
+                                <input type="text" id="mit-citta" class="f-input uppercase" placeholder="Città">
+                                <input type="text" id="mit-prov" maxlength="2" class="f-input uppercase font-bold" placeholder="PR">
+                            </div>
+                            
+                            <div class="flex items-center gap-2 mt-2 bg-white p-3 rounded-xl border border-slate-200">
+                                <input type="checkbox" id="mit-def" class="w-5 h-5 accent-emerald-500">
+                                <label for="mit-def" class="text-xs font-bold text-slate-600 cursor-pointer">Imposta come predefinito per tutte le spedizioni</label>
+                            </div>
+                            
+                            <div class="flex gap-2 pt-2">
+                                <button type="button" id="btn-del-mit" onclick="window.eliminaMittenteCloud()" class="hidden bg-red-100 text-red-600 font-black py-3 px-4 rounded-xl text-xs uppercase hover:bg-red-200 transition-colors"><i class="fa-solid fa-trash"></i></button>
+                                <button type="button" onclick="window.salvaMittenteCloud()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3 rounded-xl text-xs uppercase tracking-wider transition-colors mt-0"><i class="fa-solid fa-floppy-disk mr-1"></i> Salva Mittente</button>
+                            </div>
                         </div>
                     </div>
-
                 </div>
             </div>
         </div>
     </main>
 
-    <!-- FOGLIO REALE DI ANTEPRIMA / STAMPA LOTTI A4 -->
-    <div id="print-lotti-area">
-        <div id="grid-l" class="grid-labels"></div>
+    <!-- Modal Nuovo Prodotto / Lotto -->
+    <div id="modal-nuovo-lotto" class="fixed inset-0 z-[2000] bg-black/80 backdrop-blur-sm hidden flex justify-center items-center p-4">
+        <div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden text-left border border-slate-100">
+            <div class="bg-[#059669] px-6 py-5 text-white flex justify-between items-center">
+                <h3 class="font-black text-lg flex items-center gap-2"><i class="fa-solid fa-box-open"></i> Nuovo Prodotto / Lotto</h3>
+                <button onclick="window.closeNuovoLottoModal()" class="hover:text-red-300 transition-colors"><i class="fa-solid fa-xmark fa-lg"></i></button>
+            </div>
+            <div class="p-6 space-y-5 bg-[#f8fafc]">
+                <div>
+                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 block">Nome Prodotto</label>
+                    <input list="prod-list" id="nl-nome" class="w-full bg-white border-2 border-slate-200 p-4 rounded-xl font-bold text-slate-800 outline-none focus:border-emerald-500 shadow-sm" placeholder="Es. FOLIFERRO">
+                    <datalist id="prod-list"></datalist>
+                    <p class="text-[9px] text-slate-400 mt-1 font-bold">Inizia a scrivere per selezionare uno esistente o scrivi un nome nuovo.</p>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 block">Lotto</label>
+                        <input type="text" id="nl-lotto" class="w-full bg-white border-2 border-slate-200 p-4 rounded-xl font-bold text-slate-800 outline-none focus:border-emerald-500 shadow-sm" placeholder="Es. R664">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 block">Scadenza</label>
+                        <input type="text" id="nl-scad" class="w-full bg-white border-2 border-slate-200 p-4 rounded-xl font-bold text-slate-800 outline-none focus:border-emerald-500 shadow-sm" placeholder="Es. 04/29">
+                    </div>
+                </div>
+                <button onclick="window.salvaNuovoLotto()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-xl text-lg mt-2 shadow-lg transition-transform active:scale-95 flex justify-center items-center gap-2">
+                    <i class="fa-solid fa-floppy-disk"></i> SALVA E USA
+                </button>
+            </div>
+        </div>
     </div>
 
-    <!-- LETTERA VETTURA CORRIERE -->
+    <div id="print-lotti-area"><div id="grid-l" class="grid-labels"></div></div>
+
     <div id="print-corriere-area" class="flex flex-col justify-between h-full bg-white text-slate-900">
         <div class="border-b-[6px] border-slate-900 pb-5 text-left">
             <span class="text-sm font-bold tracking-widest text-slate-500 uppercase">Mittente:</span>
-            <p id="p-mittente-info" class="text-lg font-black text-slate-900 leading-tight">Caricamento in corso...</p>
+            <p id="p-mit-nome" class="text-lg font-black text-slate-900 leading-tight">CLINNIX S.R.L. - VIA DEL LAVORO, 10 - 80100 NAPOLI (NA)</p>
         </div>
 
-        <div class="flex-grow flex flex-col justify-center border-l-[16px] border-slate-900 pl-10 my-8 text-left">
-            <span class="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-3">CONSEGNARE A:</span>
-            <strong id="p-n" class="text-5xl block font-black leading-tight text-slate-950 uppercase mb-4"></strong>
-            <p id="p-i" class="text-3xl font-bold text-slate-800 mb-2 uppercase"></p>
+        <div class="flex-grow flex flex-col justify-center border-l-[16px] border-slate-900 pl-8 my-6 text-left">
+            <span class="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-2">CONSEGNARE A:</span>
+            <strong id="p-n" class="text-5xl block font-black leading-tight text-slate-950 uppercase mb-3"></strong>
+            <p id="p-i" class="text-3xl font-bold text-slate-800 mb-1 uppercase"></p>
             <p class="text-3xl font-black text-slate-950 uppercase"><span id="p-c"></span> - <span id="p-t"></span> (<span id="p-r"></span>)</p>
             
-            <div id="p-extra" class="mt-6 pt-6 border-t-4 border-slate-200">
-                <p class="text-sm font-bold text-slate-500 uppercase tracking-wide">Contatti e Informazioni per la consegna:</p>
-                <p class="text-xl font-bold text-slate-900 mt-2">Telefono: <span id="p-tel" class="font-black text-2xl text-slate-950"></span></p>
-                <div id="p-note-box" class="text-sm text-amber-950 bg-amber-50 px-5 py-4 rounded-xl font-bold border-2 border-amber-200 mt-3 block">
-                    <i class="fa-solid fa-bell mr-1.5 text-amber-600"></i> <span id="p-note"></span>
-                </div>
+            <div id="p-tel-box" class="mt-4 pt-4 border-t-4 border-slate-100 hidden">
+                <p class="text-xl font-bold text-slate-900">Tel: <span id="p-tel" class="font-black text-2xl"></span></p>
             </div>
-            <span class="text-2xl font-black mt-8 border-t-4 border-slate-900 pt-4 inline-block tracking-widest text-slate-800">ITALY</span>
+            <div id="p-note-box" class="text-sm text-amber-950 bg-amber-50 px-5 py-4 rounded-xl font-bold border-2 border-amber-200 mt-2 hidden">
+                <i class="fa-solid fa-bell mr-1.5 text-amber-600"></i> <span id="p-note"></span>
+            </div>
+            <span class="text-2xl font-black mt-6 border-t-4 border-slate-900 pt-3 inline-block tracking-widest text-slate-800">ITALY</span>
         </div>
 
-        <div class="text-center border-t-4 border-slate-900 pt-6 flex flex-col items-center">
+        <div class="text-center border-t-4 border-slate-900 pt-4 flex flex-col items-center">
             <svg id="p-b" class="mx-auto scale-125 my-4"></svg>
         </div>
     </div>
 
-    <!-- MODAL INSERIMENTO NUOVO PRODOTTO + LOTTO -->
-    <div id="new-prod-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[1100] hidden items-center justify-center p-4">
-        <div class="bg-white rounded-[32px] max-w-md w-full p-8 shadow-2xl border border-slate-100 space-y-6 text-left">
-            <div class="flex items-center justify-between border-b pb-4">
-                <div class="flex items-center gap-2">
-                    <i class="fa-solid fa-tag text-emerald-500 text-lg"></i>
-                    <h3 class="text-lg font-black text-slate-800 uppercase leading-none">Aggiungi Prodotto & Lotto</h3>
-                </div>
-                <button onclick="window.chiudiModalNuovoProdotto()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-            </div>
-            
-            <div class="space-y-4">
-                <div class="space-y-1">
-                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Nome Prodotto / Farmaco</label>
-                    <input type="text" id="np-nome" class="f-input uppercase font-extrabold text-slate-800" placeholder="Es. FOLIFERRO">
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="space-y-1">
-                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Codice Lotto</label>
-                        <input type="text" id="np-lotto" class="f-input uppercase font-extrabold text-slate-800" placeholder="Es. R664">
-                    </div>
-                    <div class="space-y-1">
-                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Scadenza</label>
-                        <input type="text" id="np-scadenza" class="f-input font-bold text-slate-800" placeholder="Es. 04/29">
-                    </div>
-                </div>
-            </div>
-
-            <div class="flex justify-end gap-3 pt-4 border-t">
-                <button onclick="window.chiudiModalNuovoProdotto()" class="px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-all uppercase tracking-wider">Annulla</button>
-                <button onclick="window.salvaNuovoProdotto()" class="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all shadow-lg shadow-emerald-500/10 uppercase tracking-wider">Salva & Seleziona</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- CONFIRM DI ELIMINAZIONE CONTATTO -->
-    <div id="confirm-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[1100] hidden items-center justify-center p-4">
-        <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 space-y-4 text-center">
-            <div class="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center text-2xl mx-auto animate-pulse">
-                <i class="fa-solid fa-triangle-exclamation"></i>
-            </div>
-            <h3 class="text-lg font-black text-slate-800 uppercase leading-none">Rimuovere Contatto?</h3>
-            <p class="text-xs text-slate-500">Sei sicuro? Questa operazione cancellerà permanentemente il cliente dal magazzino cloud di ClinnixPro.</p>
-            <div class="flex justify-center gap-3 pt-2">
-                <button onclick="window.chiudiModalConferma()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-all">Annulla</button>
-                <button id="btn-conferma-elimina" class="px-5 py-2.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-rose-200">Sì, Rimuovi</button>
-            </div>
-        </div>
-    </div>
 </body>
 </html>
