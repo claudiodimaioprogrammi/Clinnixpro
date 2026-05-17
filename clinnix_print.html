@@ -43,9 +43,9 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // Dati di fallback locali
+        // Dati di fallback
         const mockLotti = [{id: "mock1", name: "FOLIFERRO", lots: [{ id: "R664", expiry: "04/29" }]}];
-        const mockRubrica = [{id: "mock-rub1", nome: "FARMACIA DI TEST", citta: "NAPOLI"}];
+        const mockRubrica = [];
         
         const urlParams = new URLSearchParams(window.location.search);
         const urlPin = urlParams.get('pin');
@@ -62,12 +62,16 @@
         window.mittentiCloud = [];
         window.selectedContactId = null;
         window.editingContactId = null;
+        
+        // Variabili per l'eliminazione
+        window.contactToDeleteId = null;
+        window.contactToDeleteType = null;
+
         let unsubLotti = null;
         let unsubInformatori = null;
         let unsubCongressi = null;
         let unsubMittenti = null;
 
-        // Mittente di default iniziale di fallback
         window.mittenteAttivo = {
             nome: "CLINNIX S.R.L.",
             indirizzo: "VIA DEL LAVORO, 10",
@@ -137,7 +141,13 @@
             select.innerHTML = '<option value="">-- Seleziona Destinatario --</option>';
             data.sort((a,b) => (a.nome || a.name || '').localeCompare(b.nome || b.name || '')).forEach(d => {
                 const opt = document.createElement('option');
-                opt.value = d.id; opt.textContent = `[${d.type || 'Cliente'}] ${d.nome || d.name || 'Senza Nome'} (${d.citta || d.region || ''})`;
+                opt.value = d.id; 
+                
+                // Formatta il nome della città senza parentesi vuote
+                let locStr = `${d.citta || d.region || d.city || ''}`;
+                if(d.prov || d.province) locStr += ` (${d.prov || d.province})`;
+                
+                opt.textContent = `${d.nome || d.name || 'Senza Nome'} - ${locStr}`;
                 select.appendChild(opt);
             });
         };
@@ -149,30 +159,21 @@
                 dl.innerHTML = '';
                 const uniqueNames = [...new Set(window.lottiCloud.map(i => i.name || i.nome))].filter(Boolean).sort();
                 uniqueNames.forEach(n => {
-                    const opt = document.createElement('option');
-                    opt.value = n;
-                    dl.appendChild(opt);
+                    const opt = document.createElement('option'); opt.value = n; dl.appendChild(opt);
                 });
             }
-            document.getElementById('nl-nome').value = '';
-            document.getElementById('nl-lotto').value = '';
-            document.getElementById('nl-scad').value = '';
+            document.getElementById('nl-nome').value = ''; document.getElementById('nl-lotto').value = ''; document.getElementById('nl-scad').value = '';
             document.getElementById('modal-nuovo-lotto').classList.remove('hidden');
         };
 
-        window.closeNuovoLottoModal = () => {
-            document.getElementById('modal-nuovo-lotto').classList.add('hidden');
-        };
+        window.closeNuovoLottoModal = () => document.getElementById('modal-nuovo-lotto').classList.add('hidden');
 
         window.salvaNuovoLotto = async () => {
             const nome = document.getElementById('nl-nome').value.trim().toUpperCase();
             const lotto = document.getElementById('nl-lotto').value.trim().toUpperCase();
             const scad = document.getElementById('nl-scad').value.trim();
 
-            if (!nome || !lotto || !scad) {
-                window.showStatus("Tutti i campi (Nome, Lotto, Scadenza) sono obbligatori!");
-                return;
-            }
+            if (!nome || !lotto || !scad) { window.showStatus("Tutti i campi sono obbligatori!"); return; }
 
             const existingItem = window.lottiCloud.find(x => (x.name || x.nome || '').toUpperCase() === nome);
             const newLotObj = { id: lotto, expiry: scad, qty: 0, cartonSize: existingItem ? (existingItem.cartonSize || 10) : 10 };
@@ -182,38 +183,23 @@
                     let lots = Array.isArray(existingItem.lots) ? [...existingItem.lots] : [];
                     lots.push(newLotObj);
                     await updateDoc(doc(db, 'artifacts', MASTER_ID, 'public', 'data', 'items', existingItem.id), { lots });
-                    window.showStatus("Lotto aggiunto al prodotto esistente!");
+                    window.showStatus("Lotto aggiunto!");
                 } else {
-                    const newItem = {
-                        name: nome,
-                        stock: 0,
-                        category: 'Altro',
-                        piecesPerPack: 1,
-                        cartonSize: 10,
-                        alertThreshold: 10,
-                        lots: [newLotObj],
-                        createdAt: Date.now()
-                    };
+                    const newItem = { name: nome, stock: 0, category: 'Altro', piecesPerPack: 1, cartonSize: 10, alertThreshold: 10, lots: [newLotObj], createdAt: Date.now() };
                     await addDoc(collection(db, 'artifacts', MASTER_ID, 'public', 'data', 'items'), newItem);
-                    window.showStatus("Nuovo prodotto e lotto creati!");
+                    window.showStatus("Nuovo prodotto creato!");
                 }
                 
                 window.closeNuovoLottoModal();
-                
-                // Seleziona automaticamente il nuovo lotto dopo 1 secondo per permettere a Firebase di aggiornare
                 setTimeout(() => {
                     const sel = document.getElementById('select-lotti');
                     for (let i = 0; i < sel.options.length; i++) {
                         if (sel.options[i].getAttribute('data-n') === nome && sel.options[i].getAttribute('data-l') === lotto) {
-                            sel.selectedIndex = i;
-                            window.syncFields();
-                            break;
+                            sel.selectedIndex = i; window.syncFields(); break;
                         }
                     }
                 }, 1200);
-            } catch (error) {
-                window.showStatus("Errore nel salvataggio!");
-            }
+            } catch (error) { window.showStatus("Errore nel salvataggio!"); }
         };
 
         // --- GESTIONE MITTENTI ---
@@ -224,69 +210,51 @@
             if(sGestione) {
                 sGestione.innerHTML = '<option value="">-- Seleziona un mittente da modificare --</option>';
                 window.mittentiCloud.forEach(m => {
-                    const opt = document.createElement('option');
-                    opt.value = m.id; opt.textContent = `${m.nome} - ${m.citta} ${m.isDefault ? '(Predefinito)' : ''}`;
+                    const opt = document.createElement('option'); opt.value = m.id; opt.textContent = `${m.nome} - ${m.citta} ${m.isDefault ? '(Predefinito)' : ''}`;
                     sGestione.appendChild(opt);
                 });
             }
-
             if(sSped) {
                 sSped.innerHTML = '';
                 if(window.mittentiCloud.length === 0) {
                     sSped.innerHTML = '<option value="">Mittente Predefinito (Clinnix)</option>';
                 } else {
                     window.mittentiCloud.forEach(m => {
-                        const opt = document.createElement('option');
-                        opt.value = m.id; opt.textContent = `${m.nome} - ${m.indirizzo}, ${m.citta} ${m.isDefault ? '(Predefinito)' : ''}`;
+                        const opt = document.createElement('option'); opt.value = m.id; opt.textContent = `${m.nome} - ${m.indirizzo}, ${m.citta} ${m.isDefault ? '(Predefinito)' : ''}`;
                         sSped.appendChild(opt);
                     });
                 }
-                if(window.mittenteAttivo && window.mittenteAttivo.id) {
-                    sSped.value = window.mittenteAttivo.id;
-                }
+                if(window.mittenteAttivo && window.mittenteAttivo.id) sSped.value = window.mittenteAttivo.id;
             }
         };
 
         window.cambiaMittenteAttivo = (id) => {
             const m = window.mittentiCloud.find(x => x.id === id);
-            if(m) {
-                window.mittenteAttivo = m;
-                window.aggiornaLabelMittente();
-            }
+            if(m) { window.mittenteAttivo = m; window.aggiornaLabelMittente(); }
         };
 
         window.aggiornaLabelMittente = () => {
             const m = window.mittenteAttivo;
             const label = document.getElementById('p-mit-nome');
-            if(m && label) {
-                label.innerText = `${m.nome} - ${m.indirizzo} - ${m.cap} ${m.citta} (${m.prov})`;
-            }
+            if(m && label) { label.innerText = `${m.nome} - ${m.indirizzo} - ${m.cap} ${m.citta} (${m.prov})`; }
         };
 
         window.nuovoMittente = () => {
             const s = document.getElementById('gestione-seleziona-mittente'); if(s) s.value = '';
-            document.getElementById('mit-id').value = '';
-            document.getElementById('mit-nome').value = '';
-            document.getElementById('mit-ind').value = '';
-            document.getElementById('mit-cap').value = '';
-            document.getElementById('mit-citta').value = '';
-            document.getElementById('mit-prov').value = '';
+            document.getElementById('mit-id').value = ''; document.getElementById('mit-nome').value = '';
+            document.getElementById('mit-ind').value = ''; document.getElementById('mit-cap').value = '';
+            document.getElementById('mit-citta').value = ''; document.getElementById('mit-prov').value = '';
             document.getElementById('mit-def').checked = false;
-            document.getElementById('btn-del-mit').classList.add('hidden');
         };
 
         window.caricaCampiMittenteForm = (id) => {
             if(!id) { window.nuovoMittente(); return; }
             const m = window.mittentiCloud.find(x => x.id === id);
             if(m) {
-                document.getElementById('mit-id').value = m.id;
-                document.getElementById('mit-nome').value = m.nome || '';
-                document.getElementById('mit-ind').value = m.indirizzo || '';
-                document.getElementById('mit-cap').value = m.cap || '';
-                document.getElementById('mit-citta').value = m.citta || '';
-                document.getElementById('mit-prov').value = m.prov || '';
+                document.getElementById('mit-id').value = m.id; document.getElementById('mit-nome').value = m.nome || '';
+                document.getElementById('mit-ind').value = m.indirizzo || ''; document.getElementById('mit-cap').value = m.cap || '';
+                document.getElementById('mit-citta').value = m.citta || ''; document.getElementById('mit-prov').value = m.prov || '';
                 document.getElementById('mit-def').checked = !!m.isDefault;
-                document.getElementById('btn-del-mit').classList.remove('hidden');
             }
         };
 
@@ -299,43 +267,19 @@
             const prov = document.getElementById('mit-prov').value.trim().toUpperCase();
             const isDefault = document.getElementById('mit-def').checked;
 
-            if(!nome || !ind || !citta) {
-                window.showStatus("Nome, Indirizzo e Città sono obbligatori!");
-                return;
-            }
+            if(!nome || !ind || !citta) { window.showStatus("Nome, Indirizzo e Città sono obbligatori!"); return; }
 
             try {
-                // Se settiamo questo come default, togliamo il default agli altri
                 if(isDefault) {
                     for(let m of window.mittentiCloud) {
-                        if(m.isDefault && m.id !== id) {
-                            await updateDoc(doc(db, 'artifacts', MASTER_ID, 'public', 'data', 'mittenti', m.id), { isDefault: false });
-                        }
+                        if(m.isDefault && m.id !== id) await updateDoc(doc(db, 'artifacts', MASTER_ID, 'public', 'data', 'mittenti', m.id), { isDefault: false });
                     }
                 }
-
                 const dataMit = { nome, indirizzo: ind, cap, citta, prov, isDefault, timestamp: Date.now() };
-                
-                if(id) {
-                    await setDoc(doc(db, 'artifacts', MASTER_ID, 'public', 'data', 'mittenti', id), dataMit, { merge: true });
-                    window.showStatus("Mittente aggiornato!");
-                } else {
-                    await addDoc(collection(db, 'artifacts', MASTER_ID, 'public', 'data', 'mittenti'), dataMit);
-                    window.showStatus("Nuovo mittente salvato!");
-                }
-                
+                if(id) { await setDoc(doc(db, 'artifacts', MASTER_ID, 'public', 'data', 'mittenti', id), dataMit, { merge: true }); window.showStatus("Mittente aggiornato!"); } 
+                else { await addDoc(collection(db, 'artifacts', MASTER_ID, 'public', 'data', 'mittenti'), dataMit); window.showStatus("Nuovo mittente salvato!"); }
                 window.nuovoMittente();
-            } catch (err) { window.showStatus("Errore nel salvataggio del mittente"); }
-        };
-
-        window.eliminaMittenteCloud = async () => {
-            const id = document.getElementById('mit-id').value;
-            if(!id) return;
-            if(confirm("Vuoi davvero eliminare questo mittente?")) {
-                await deleteDoc(doc(db, 'artifacts', MASTER_ID, 'public', 'data', 'mittenti', id));
-                window.nuovoMittente();
-                window.showStatus("Mittente eliminato");
-            }
+            } catch (err) { window.showStatus("Errore nel salvataggio"); }
         };
 
         // --- NAVIGATION E RUBRICA CORRIERE ---
@@ -353,9 +297,7 @@
             document.getElementById('tab-corriere').classList.add('hidden');
         };
 
-        window.closePreview = () => {
-            document.body.classList.remove('mode-preview', 'show-lotti', 'show-corriere');
-        };
+        window.closePreview = () => { document.body.classList.remove('mode-preview', 'show-lotti', 'show-corriere'); };
 
         window.showCorriereSubTab = (sub) => {
             document.getElementById('sub-tab-spedizione').classList.add('hidden');
@@ -367,28 +309,20 @@
             const btnGest = document.getElementById('btn-sub-gest');
             const btnMit = document.getElementById('btn-sub-mit');
             
-            btnSped.className = "px-4 py-3 text-xs font-bold border-b-2 border-transparent text-slate-500";
-            btnGest.className = "px-4 py-3 text-xs font-bold border-b-2 border-transparent text-slate-500";
-            btnMit.className = "px-4 py-3 text-xs font-bold border-b-2 border-transparent text-slate-500";
+            btnSped.className = "px-4 py-4 text-sm font-bold border-b-2 border-transparent text-slate-400";
+            btnGest.className = "px-4 py-4 text-sm font-bold border-b-2 border-transparent text-slate-400";
+            btnMit.className = "px-4 py-4 text-sm font-bold border-b-2 border-transparent text-slate-400";
 
-            if(sub === 'spedizione') {
-                btnSped.className = "px-4 py-3 text-xs font-black border-b-2 border-secondary text-secondary transition-all";
-            } else if(sub === 'gestione') {
-                btnGest.className = "px-4 py-3 text-xs font-black border-b-2 border-secondary text-secondary transition-all";
-                window.renderRubricaList(); window.annullaModifica();
-            } else if(sub === 'mittente') {
-                btnMit.className = "px-4 py-3 text-xs font-black border-b-2 border-secondary text-secondary transition-all";
-                window.nuovoMittente(); // Resetta il form quando entri
-            }
+            if(sub === 'spedizione') btnSped.className = "px-4 py-4 text-sm font-black border-b-2 border-blue-500 text-blue-600 transition-all";
+            else if(sub === 'gestione') { btnGest.className = "px-4 py-4 text-sm font-black border-b-2 border-blue-500 text-blue-600 transition-all"; window.renderRubricaList(); window.annullaModifica(); } 
+            else if(sub === 'mittente') { btnMit.className = "px-4 py-4 text-sm font-black border-b-2 border-blue-500 text-blue-600 transition-all"; window.nuovoMittente(); }
         };
 
         window.syncRubrica = () => {
             const id = document.getElementById('select-rubrica').value;
             const d = window.rubricaCloud.find(x => x.id === id);
-            const btnUpdate = document.getElementById('btn-update-from-sped');
             if(d) {
                 window.selectedContactId = id;
-                if(btnUpdate) { btnUpdate.classList.remove('opacity-50', 'cursor-not-allowed'); btnUpdate.disabled = false; }
                 document.getElementById('c-n').value = d.nome || d.name || ''; document.getElementById('c-i').value = d.indirizzo || d.address || '';
                 document.getElementById('c-c').value = d.cap || d.zip || ''; document.getElementById('c-t').value = d.citta || d.city || d.region || '';
                 document.getElementById('c-r').value = d.prov || d.province || ''; document.getElementById('c-tel').value = d.telefono || d.phone || '';
@@ -396,28 +330,39 @@
             }
         };
 
+        // RENDER RUBRICA AGGIORNATO (STILE SCHEDE BIANCHE)
         window.renderRubricaList = (filterText = '') => {
             const container = document.getElementById('rubrica-list-container');
             if(!container) return; container.innerHTML = '';
+            
             const filtered = window.rubricaCloud.filter(c => {
                 const searchStr = `${c.nome||c.name||''} ${c.citta||c.region||''} ${c.telefono||c.phone||''}`.toLowerCase();
                 return searchStr.includes(filterText.toLowerCase());
             });
+            
             if(filtered.length === 0) {
-                container.innerHTML = '<div class="text-center py-8 text-slate-400 text-xs font-bold uppercase">Nessun cliente in archivio</div>';
+                container.innerHTML = '<div class="text-center py-8 text-slate-400 text-sm font-bold">Nessun cliente in archivio</div>';
                 return;
             }
+            
             filtered.forEach(c => {
                 const card = document.createElement('div');
-                card.className = "bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 w-full box-border overflow-hidden";
+                card.className = "bg-white border border-slate-100 shadow-sm rounded-[1.25rem] p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 w-full box-border transition-all hover:shadow-md mb-3";
+                
+                // Gestione Parentesi Intelligente
+                let locStr = `${c.citta || c.region || c.city || ''}`;
+                if (c.prov || c.province) { locStr += ` (${c.prov || c.province})`; }
+                let addressLine = `${c.indirizzo || c.address || '-'}, ${locStr}`;
+
                 card.innerHTML = `
-                    <div class="flex-grow space-y-1 text-left w-full break-words">
-                        <div class="font-bold text-slate-800 uppercase text-xs break-words"><span class="text-[9px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded mr-1">${c.type || 'CL'}</span> ${c.nome || c.name || 'Senza Nome'}</div>
-                        <div class="text-[10px] text-slate-500 break-words"><i class="fa-solid fa-location-dot mr-1"></i> ${c.indirizzo||''}, ${c.cap||''} ${c.citta||c.region||''} (${c.prov||''})</div>
+                    <div class="flex-grow text-left w-full overflow-hidden">
+                        <div class="font-black text-slate-900 text-[15px] mb-1.5 uppercase truncate">${c.nome || c.name || 'SENZA NOME'}</div>
+                        <div class="text-xs text-slate-500 font-medium truncate"><i class="fa-solid fa-location-dot mr-1"></i> ${addressLine}</div>
                     </div>
-                    <div class="flex gap-2 w-full md:w-auto justify-end">
-                        <button onclick="window.usaContatto('${c.id}')" class="bg-emerald-500 text-white text-[9px] font-black px-2 py-2 rounded-lg flex items-center gap-1"><i class="fa-solid fa-truck"></i> Usa</button>
-                        <button onclick="window.avviaModificaContatto('${c.id}')" class="bg-blue-500 text-white text-[9px] font-black px-2.5 py-2 rounded-lg"><i class="fa-solid fa-pen"></i></button>
+                    <div class="flex flex-wrap gap-2 w-full md:w-auto justify-end flex-shrink-0">
+                        <button onclick="window.usaContatto('${c.id}')" class="bg-[#10b981] hover:bg-[#059669] text-white text-[11px] font-black px-4 py-2.5 rounded-xl flex items-center gap-1.5 transition-colors shadow-sm"><i class="fa-solid fa-truck"></i> USA</button>
+                        <button onclick="window.avviaModificaContatto('${c.id}')" class="bg-[#3b82f6] hover:bg-[#2563eb] text-white text-[11px] font-black px-4 py-2.5 rounded-xl flex items-center gap-1.5 transition-colors shadow-sm"><i class="fa-solid fa-pen"></i> MODIFICA</button>
+                        <button onclick="window.apriModalEliminazione('${c.id}', '${c.type}')" class="bg-[#f43f5e] hover:bg-[#e11d48] text-white text-[11px] font-black px-4 py-2.5 rounded-xl flex items-center gap-1.5 transition-colors shadow-sm"><i class="fa-solid fa-trash"></i> ELIMINA</button>
                     </div>
                 `;
                 container.appendChild(card);
@@ -429,6 +374,34 @@
             window.showStatus("Cliente pronto per la spedizione!"); window.showCorriereSubTab('spedizione');
         };
 
+        // GESTIONE ELIMINAZIONE CONTATTO (MODAL)
+        window.apriModalEliminazione = (id, type) => {
+            window.contactToDeleteId = id;
+            window.contactToDeleteType = type;
+            document.getElementById('modal-conferma-eliminazione').classList.remove('hidden');
+        };
+
+        window.chiudiModalEliminazione = () => {
+            document.getElementById('modal-conferma-eliminazione').classList.add('hidden');
+            window.contactToDeleteId = null;
+            window.contactToDeleteType = null;
+        };
+
+        window.confermaEliminazione = async () => {
+            if(!window.contactToDeleteId) return;
+            const collectionName = window.contactToDeleteType === 'Congresso' ? 'congressi' : 'informatori';
+            
+            try {
+                await deleteDoc(doc(db, 'artifacts', MASTER_ID, 'public', 'data', collectionName, window.contactToDeleteId));
+                window.showStatus("Contatto eliminato con successo!");
+                window.chiudiModalEliminazione();
+                // La lista si aggiornerà in automatico grazie a onSnapshot
+            } catch (err) {
+                window.showStatus("Errore durante l'eliminazione");
+            }
+        };
+
+        // MODIFICA E AGGIUNTA
         window.annullaModifica = () => {
             const box = document.getElementById('rubrica-form-box');
             if (box) box.classList.add('hidden');
@@ -438,13 +411,12 @@
         window.avviaNuovoContatto = () => {
             window.editingContactId = null;
             const title = document.getElementById('rubrica-form-title');
-            if (title) title.innerText = "Aggiungi Nuovo";
+            if (title) title.innerText = "Aggiungi Nuovo Contatto";
             ['m-nome','m-tel','m-ind','m-cap','m-citta','m-prov','m-note'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.value = '';
+                const el = document.getElementById(id); if (el) el.value = '';
             });
             const box = document.getElementById('rubrica-form-box');
-            if (box) box.classList.remove('hidden');
+            if (box) { box.classList.remove('hidden'); box.scrollIntoView({ behavior: 'smooth' }); }
         };
 
         window.avviaModificaContatto = (id) => {
@@ -454,48 +426,31 @@
             const d = window.rubricaCloud.find(x => x.id === id);
             if(d) {
                 const fields = {
-                    'm-nome': d.nome || d.name || '',
-                    'm-tel': d.telefono || d.phone || '',
-                    'm-ind': d.indirizzo || d.address || '',
-                    'm-cap': d.cap || d.zip || '',
-                    'm-citta': d.citta || d.city || d.region || '',
-                    'm-prov': d.prov || d.province || '',
+                    'm-nome': d.nome || d.name || '', 'm-tel': d.telefono || d.phone || '',
+                    'm-ind': d.indirizzo || d.address || '', 'm-cap': d.cap || d.zip || '',
+                    'm-citta': d.citta || d.city || d.region || '', 'm-prov': d.prov || d.province || '',
                     'm-note': d.note || d.notes || ''
                 };
                 Object.keys(fields).forEach(key => {
-                    const el = document.getElementById(key);
-                    if (el) el.value = fields[key];
+                    const el = document.getElementById(key); if (el) el.value = fields[key];
                 });
                 const box = document.getElementById('rubrica-form-box');
-                if (box) {
-                    box.classList.remove('hidden');
-                    box.scrollIntoView({ behavior: 'smooth' });
-                }
+                if (box) { box.classList.remove('hidden'); box.scrollIntoView({ behavior: 'smooth' }); }
             }
         };
 
         window.salvaContatto = async () => {
-            const nome = document.getElementById('m-nome').value.trim();
-            const tel = document.getElementById('m-tel').value.trim();
-            const ind = document.getElementById('m-ind').value.trim();
-            const cap = document.getElementById('m-cap').value.trim();
-            const citta = document.getElementById('m-citta').value.trim();
-            const prov = document.getElementById('m-prov').value.trim();
+            const nome = document.getElementById('m-nome').value.trim(); const tel = document.getElementById('m-tel').value.trim();
+            const ind = document.getElementById('m-ind').value.trim(); const cap = document.getElementById('m-cap').value.trim();
+            const citta = document.getElementById('m-citta').value.trim(); const prov = document.getElementById('m-prov').value.trim();
             const note = document.getElementById('m-note').value.trim();
 
-            if(!nome || !ind || !citta) {
-                window.showStatus("Nome, Indirizzo e Città sono obbligatori!");
-                return;
-            }
+            if(!nome || !ind || !citta) { window.showStatus("Nome, Indirizzo e Città sono obbligatori!"); return; }
             const docData = {
                 name: nome.toUpperCase(), nome: nome.toUpperCase(),
-                address: ind.toUpperCase(), indirizzo: ind.toUpperCase(),
-                zip: cap, cap: cap,
-                city: citta.toUpperCase(), citta: citta.toUpperCase(),
-                province: prov.toUpperCase(), prov: prov.toUpperCase(),
-                phone: tel, telefono: tel,
-                notes: note, note: note,
-                timestamp: Date.now()
+                address: ind.toUpperCase(), indirizzo: ind.toUpperCase(), zip: cap, cap: cap,
+                city: citta.toUpperCase(), citta: citta.toUpperCase(), province: prov.toUpperCase(), prov: prov.toUpperCase(),
+                phone: tel, telefono: tel, notes: note, note: note, timestamp: Date.now()
             };
             try {
                 if(window.editingContactId) {
@@ -506,190 +461,124 @@
                     window.showStatus("Nuovo cliente salvato!");
                 }
                 window.annullaModifica();
-                window.renderRubricaList();
             } catch (err) { window.showStatus("Errore nel salvataggio"); }
         };
 
-        // --- ENGINE DI GENERAZIONE LOTTI CON COLONNE ACCOPPIATE ---
+        // --- ENGINE DI GENERAZIONE ---
         window.viewLotti = (e) => {
             e.preventDefault();
             const s = document.getElementById('select-lotti');
             const o = s.options[s.selectedIndex];
             if(!o || !o.value) { alert("Seleziona prima un prodotto!"); return; }
 
-            const name = o.getAttribute('data-n') || '';
-            const lot = o.getAttribute('data-l') || '';
-            const exp = o.getAttribute('data-e') || '';
-            const q = parseInt(document.getElementById('f-q').value);
-            const start = parseInt(document.getElementById('f-s').value);
-            const cont = document.getElementById('grid-l');
-            cont.innerHTML = '';
+            const name = o.getAttribute('data-n') || ''; const lot = o.getAttribute('data-l') || ''; const exp = o.getAttribute('data-e') || '';
+            const q = parseInt(document.getElementById('f-q').value); const start = parseInt(document.getElementById('f-s').value);
+            const cont = document.getElementById('grid-l'); cont.innerHTML = '';
 
             const head = document.createElement('div');
             head.className = 'etichetta-intestazione-unificata cell-fustellata';
             head.style.gridColumn = '1 / 3'; head.style.gridRow = '1 / 3';
-            head.innerHTML = `
-                <div class="titolo-prodotto">${name}</div>
-                <div class="scadenza-info">LOTTO: ${lot} &nbsp;|&nbsp; SCAD: ${exp}</div>
-            `;
+            head.innerHTML = `<div class="titolo-prodotto">${name}</div><div class="scadenza-info">LOTTO: ${lot} &nbsp;|&nbsp; SCAD: ${exp}</div>`;
             cont.appendChild(head);
 
             let printedCount = 0;
             for(let i=1; i<=140; i++) {
                 if (i === 1 || i === 2 || i === 11 || i === 12) continue;
-
-                const logicalRow = Math.ceil(i / 10);
-                const logicalCol = ((i - 1) % 10) + 1;
-
+                const logicalRow = Math.ceil(i / 10); const logicalCol = ((i - 1) % 10) + 1;
                 let gridColStart = logicalCol;
-                if (logicalCol > 2) gridColStart += 1;
-                if (logicalCol > 4) gridColStart += 1;
-                if (logicalCol > 6) gridColStart += 1;
-                if (logicalCol > 8) gridColStart += 1;
+                if (logicalCol > 2) gridColStart += 1; if (logicalCol > 4) gridColStart += 1; if (logicalCol > 6) gridColStart += 1; if (logicalCol > 8) gridColStart += 1;
 
                 const c = document.createElement('div');
-                c.className = 'cell cell-fustellata';
-                c.style.gridColumn = `${gridColStart} / ${gridColStart + 1}`;
-                c.style.gridRow = `${logicalRow} / ${logicalRow + 1}`;
-
+                c.className = 'cell cell-fustellata'; c.style.gridColumn = `${gridColStart} / ${gridColStart + 1}`; c.style.gridRow = `${logicalRow} / ${logicalRow + 1}`;
                 if(i >= start && printedCount < q) {
-                    c.innerHTML = `
-                        <p class="t-label">Lotto:</p>
-                        <p class="t-val">${lot}</p>
-                        <p class="t-label">Scade il</p>
-                        <p class="t-val">${exp}</p>
-                    `;
+                    c.innerHTML = `<p class="t-label">Lotto:</p><p class="t-val">${lot}</p><p class="t-label">Scade il</p><p class="t-val">${exp}</p>`;
                     printedCount++;
                 }
                 cont.appendChild(c);
             }
-            document.body.classList.remove('show-corriere');
-            document.body.classList.add('mode-preview', 'show-lotti');
+            document.body.classList.remove('show-corriere'); document.body.classList.add('mode-preview', 'show-lotti');
         };
 
         window.viewCorriere = (e) => {
             e.preventDefault();
             document.getElementById('p-n').innerText = document.getElementById('c-n').value.toUpperCase();
             document.getElementById('p-i').innerText = document.getElementById('c-i').value.toUpperCase();
-            document.getElementById('p-c').innerText = document.getElementById('c-c').value;
-            document.getElementById('p-t').innerText = document.getElementById('c-t').value.toUpperCase();
-            document.getElementById('p-r').innerText = document.getElementById('c-r').value.toUpperCase();
+            
+            const cap = document.getElementById('c-c').value;
+            const citta = document.getElementById('c-t').value.toUpperCase();
+            const prov = document.getElementById('c-r').value.toUpperCase();
+            
+            // Logica senza parentesi vuote
+            let locationString = `${cap} - ${citta}`;
+            if(prov) { locationString += ` (${prov})`; }
+            document.getElementById('p-loc-string').innerText = locationString;
             
             const tel = document.getElementById('c-tel').value;
             const note = document.getElementById('c-note').value;
-            if(tel) { document.getElementById('p-tel-box').classList.remove('hidden'); document.getElementById('p-tel').innerText = tel; } 
-            else document.getElementById('p-tel-box').classList.add('hidden');
-            
-            if(note) { document.getElementById('p-note-box').classList.remove('hidden'); document.getElementById('p-note').innerText = note; }
-            else document.getElementById('p-note-box').classList.add('hidden');
+            if(tel) { document.getElementById('p-tel-box').classList.remove('hidden'); document.getElementById('p-tel').innerText = tel; } else document.getElementById('p-tel-box').classList.add('hidden');
+            if(note) { document.getElementById('p-note-box').classList.remove('hidden'); document.getElementById('p-note').innerText = note; } else document.getElementById('p-note-box').classList.add('hidden');
 
-            if (typeof JsBarcode === 'function') {
-                JsBarcode("#p-b", "CLX" + Date.now(), { format: "CODE128", width: 2.2, height: 70, displayValue: true, fontSize: 14, fontOptions: "bold" });
-            }
-            document.body.classList.remove('show-lotti');
-            document.body.classList.add('mode-preview', 'show-corriere');
+            if (typeof JsBarcode === 'function') JsBarcode("#p-b", "CLX" + Date.now(), { format: "CODE128", width: 2.2, height: 70, displayValue: true, fontSize: 14, fontOptions: "bold" });
+            document.body.classList.remove('show-lotti'); document.body.classList.add('mode-preview', 'show-corriere');
         };
 
-        // CONTROLLO DI SINCRO CLOUD
         onAuthStateChanged(auth, async (u) => {
             if(u) {
                 window.updateSync('on');
-
-                // Sincronizzazione Mittenti
                 unsubMittenti = onSnapshot(collection(db, 'artifacts', MASTER_ID, 'public', 'data', 'mittenti'), (s) => {
-                    window.mittentiCloud = s.docs.map(d => ({ id: d.id, ...d.data() }));
-                    window.popolaSelectMittenti();
-                    
+                    window.mittentiCloud = s.docs.map(d => ({ id: d.id, ...d.data() })); window.popolaSelectMittenti();
                     if(window.mittentiCloud.length > 0) {
                         const defaultMit = window.mittentiCloud.find(x => x.isDefault) || window.mittentiCloud[0];
                         if (!window.mittenteAttivo || !window.mittentiCloud.find(x => x.id === window.mittenteAttivo.id)) {
-                            window.mittenteAttivo = defaultMit;
-                            const s2 = document.getElementById('spedizione-seleziona-mittente');
-                            if(s2) s2.value = defaultMit.id;
-                            window.aggiornaLabelMittente();
+                            window.mittenteAttivo = defaultMit; const s2 = document.getElementById('spedizione-seleziona-mittente'); if(s2) s2.value = defaultMit.id; window.aggiornaLabelMittente();
                         }
-                    } else {
-                        // Fallback se nessun mittente esiste nel database
-                        window.mittenteAttivo = { nome: "CLINNIX S.R.L.", indirizzo: "VIA DEL LAVORO, 10", cap: "80100", citta: "NAPOLI", prov: "NA" };
-                        window.aggiornaLabelMittente();
-                    }
+                    } else { window.mittenteAttivo = { nome: "CLINNIX S.R.L.", indirizzo: "VIA DEL LAVORO, 10", cap: "80100", citta: "NAPOLI", prov: "NA" }; window.aggiornaLabelMittente(); }
                 });
-
                 unsubLotti = onSnapshot(collection(db, 'artifacts', MASTER_ID, 'public', 'data', 'items'), (s) => {
                     const cloudItems = s.docs.map(d => ({ id: d.id, ...d.data() }));
                     if (cloudItems.length > 0) { window.lottiCloud = cloudItems; window.popolaLotti(window.lottiCloud); }
                 });
 
-                let localInformatori = [];
-                let localCongressi = [];
+                let localInformatori = []; let localCongressi = [];
+                const updateRubricaGlobale = () => { window.rubricaCloud = [...localInformatori, ...localCongressi]; window.popolaRubrica(window.rubricaCloud); window.renderRubricaList(); };
 
-                const updateRubricaGlobale = () => {
-                    window.rubricaCloud = [...localInformatori, ...localCongressi];
-                    window.popolaRubrica(window.rubricaCloud);
-                };
-
-                unsubInformatori = onSnapshot(collection(db, 'artifacts', MASTER_ID, 'public', 'data', 'informatori'), (s) => {
-                    localInformatori = s.docs.map(d => ({ id: d.id, type: 'Informatore', ...d.data() }));
-                    updateRubricaGlobale();
-                });
-
-                unsubCongressi = onSnapshot(collection(db, 'artifacts', MASTER_ID, 'public', 'data', 'congressi'), (s) => {
-                    localCongressi = s.docs.map(d => ({ id: d.id, type: 'Congresso', ...d.data() }));
-                    updateRubricaGlobale();
-                });
+                unsubInformatori = onSnapshot(collection(db, 'artifacts', MASTER_ID, 'public', 'data', 'informatori'), (s) => { localInformatori = s.docs.map(d => ({ id: d.id, type: 'Informatore', ...d.data() })); updateRubricaGlobale(); });
+                unsubCongressi = onSnapshot(collection(db, 'artifacts', MASTER_ID, 'public', 'data', 'congressi'), (s) => { localCongressi = s.docs.map(d => ({ id: d.id, type: 'Congresso', ...d.data() })); updateRubricaGlobale(); });
             }
         });
         signInAnonymously(auth);
     </script>
 
     <style>
-        :root {
-            --brand: #002d5a; --secondary: #007bff; --bg: #f4f7fa;
-            --page-pad-top: 10mm; --page-pad-left: 5mm;
-        }
+        :root { --brand: #002d5a; --secondary: #007bff; --bg: #f8fafc; --page-pad-top: 10mm; --page-pad-left: 5mm; }
         body { background-color: var(--bg); font-family: 'Inter', sans-serif; }
         header { background-color: var(--brand); color: white; height: 64px; display: flex; align-items: center; padding: 0 24px; justify-content: space-between; }
         .logo-text { font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 1.25rem; }
         .dash-card { background: white; border-radius: 20px; padding: 32px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); text-align: left; }
-        .f-input { width: 100%; background: #f8fafc; border: 2px solid #edf2f7; border-radius: 14px; padding: 12px 16px; font-weight: 600; font-size: 0.9rem; outline: none; }
+        .f-input { width: 100%; background: #f8fafc; border: 2px solid #edf2f7; border-radius: 14px; padding: 12px 16px; font-weight: 600; font-size: 0.9rem; outline: none; transition: border-color 0.2s; }
         .f-input:focus { border-color: var(--secondary); background: white; }
 
-        /* ======== GESTIONE ANTEPRIME E INTERFACCIA ======== */
         #preview-bar { display: none; position: fixed; top: 0; left: 0; right: 0; background: #1a202c; height: 70px; z-index: 1000; justify-content: center; gap: 30px; align-items: center; }
         body.mode-preview #preview-bar { display: flex; }
         body.mode-preview header, body.mode-preview main { display: none !important; }
 
         #print-lotti-area, #print-corriere-area { display: none !important; }
         body.show-lotti #print-lotti-area { display: block !important; margin: 90px auto; box-shadow: 0 0 50px rgba(0,0,0,0.4); }
-        
-        body.show-corriere #print-corriere-area { 
-            display: flex !important; flex-direction: column; justify-content: space-between;
-            background: white; width: 148mm; height: 210mm; margin: 90px auto; padding: 16mm;
-            border: 4px solid #000; box-shadow: 0 0 50px rgba(0,0,0,0.4); box-sizing: border-box;
-        }
+        body.show-corriere #print-corriere-area { display: flex !important; flex-direction: column; justify-content: space-between; background: white; width: 148mm; height: 210mm; margin: 90px auto; padding: 16mm; border: 4px solid #000; box-shadow: 0 0 50px rgba(0,0,0,0.4); box-sizing: border-box; }
 
-        /* ======== GRIGLIA LOTTI FUSTELLATI CON ACCOPPIAMENTO ======== */
         #print-lotti-area { width: 210mm; height: 297mm; background: white; box-sizing: border-box; padding: var(--page-pad-top) var(--page-pad-left); }
-        .grid-labels {
-            display: grid;
-            grid-template-columns: 1fr 1fr 2mm 1fr 1fr 2mm 1fr 1fr 2mm 1fr 1fr 2mm 1fr 1fr;
-            grid-template-rows: repeat(14, 1fr);
-            width: 100%; height: 100%; box-sizing: border-box; gap: 0;
-        }
+        .grid-labels { display: grid; grid-template-columns: 1fr 1fr 2mm 1fr 1fr 2mm 1fr 1fr 2mm 1fr 1fr 2mm 1fr 1fr; grid-template-rows: repeat(14, 1fr); width: 100%; height: 100%; box-sizing: border-box; gap: 0; }
         .cell-fustellata { background-color: #fafafa; border: 0.5px solid #e2e8f0; border-radius: 2px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; align-items: center; }
         .cell { text-align: center; font-family: 'Times New Roman', serif; padding: 0.5mm; }
         .cell p { margin: 0; color: black; line-height: 1.1; }
-        
         .t-label { font-size: 8pt; color: #64748b; text-transform: uppercase; font-weight: 700; }
         .t-val { font-size: 11pt; font-weight: 900; margin-bottom: 1.5mm; color: #0f172a; }
-
         .etichetta-intestazione-unificata { font-family: 'Montserrat', sans-serif; color: #002d5a; text-transform: uppercase; text-align: center; padding: 2mm; }
         .etichetta-intestazione-unificata .titolo-prodotto { font-weight: 800; font-size: 14pt; line-height: 1.1; }
         .etichetta-intestazione-unificata .scadenza-info { font-weight: 700; font-size: 8pt; margin-top: 1mm; }
 
-        /* ======== PRINT STYLES ======== */
         @media print {
-            .no-print, #preview-bar, header, main, #modal-nuovo-lotto { display: none !important; }
+            .no-print, #preview-bar, header, main, #modal-nuovo-lotto, #modal-conferma-eliminazione { display: none !important; }
             @page { margin: 0; size: A4; }
             html, body { display: block !important; margin: 0 !important; padding: 0 !important; background: white !important; }
             #print-lotti-area, #print-corriere-area { display: none !important; }
@@ -731,11 +620,12 @@
                 <button onclick="window.openTab('corriere')" class="dash-card group hover:border-blue-500 transition-all">
                     <div class="w-14 h-14 bg-blue-50 text-blue-500 group-hover:bg-blue-500 group-hover:text-white rounded-xl flex items-center justify-center text-xl mb-4"><i class="fa-solid fa-truck-fast"></i></div>
                     <h3 class="text-xl font-black text-slate-800 mb-2">Stampa Lettera Vettura</h3>
-                    <p class="text-slate-500 text-xs">Etichetta corriere gigante con mittente predefinito configurabile.</p>
+                    <p class="text-slate-500 text-xs">Etichetta corriere gigante con rubrica clienti incorporata.</p>
                 </button>
             </div>
         </div>
 
+        <!-- TAB LOTTI -->
         <div id="tab-lotti" class="hidden max-w-xl mx-auto">
             <div class="bg-white rounded-[2rem] shadow-2xl overflow-hidden text-left border border-slate-100">
                 <div class="bg-[#111827] px-8 py-8 text-white relative">
@@ -747,7 +637,6 @@
                 </div>
                 <div class="p-8">
                     <form onsubmit="window.viewLotti(event)" class="space-y-6">
-                        <!-- Prodotto Select -->
                         <div>
                             <div class="flex justify-between items-center mb-3">
                                 <label class="text-xs font-black text-slate-500 uppercase tracking-widest">Prodotto</label>
@@ -759,119 +648,109 @@
                                 <option value="">-- Seleziona Prodotto --</option>
                             </select>
                         </div>
-
-                        <!-- Readonly Prodotto & Lotto -->
                         <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Prodotto Selezionato</label>
-                                <input type="text" id="i-p" readonly placeholder="Prodotto" class="w-full bg-[#f8fafc] border-2 border-slate-100 p-4 rounded-2xl font-bold text-slate-500 outline-none">
-                            </div>
-                            <div>
-                                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Lotto Attivo</label>
-                                <input type="text" id="i-l" readonly placeholder="Lotto" class="w-full bg-[#f8fafc] border-2 border-slate-100 p-4 rounded-2xl font-bold text-slate-500 outline-none">
-                            </div>
+                            <div><label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Prodotto Selezionato</label><input type="text" id="i-p" readonly class="w-full bg-[#f8fafc] border-2 border-slate-100 p-4 rounded-2xl font-bold text-slate-500 outline-none"></div>
+                            <div><label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Lotto Attivo</label><input type="text" id="i-l" readonly class="w-full bg-[#f8fafc] border-2 border-slate-100 p-4 rounded-2xl font-bold text-slate-500 outline-none"></div>
                         </div>
-
-                        <!-- Readonly Scadenza -->
-                        <div>
-                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Scadenza</label>
-                            <input type="text" id="i-e" readonly placeholder="Scadenza" class="w-full bg-[#f8fafc] border-2 border-slate-100 p-4 rounded-2xl font-bold text-slate-500 outline-none">
-                        </div>
-
-                        <!-- Config Box -->
+                        <div><label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Scadenza</label><input type="text" id="i-e" readonly class="w-full bg-[#f8fafc] border-2 border-slate-100 p-4 rounded-2xl font-bold text-slate-500 outline-none"></div>
                         <div class="bg-[#f8fafc] border-2 border-slate-100 p-6 rounded-[1.5rem]">
                             <div class="grid grid-cols-2 gap-6">
-                                <div>
-                                    <label class="text-xs font-black text-blue-600 uppercase tracking-widest mb-3 block">Quantità Etichette</label>
-                                    <input type="number" id="f-q" value="126" max="136" class="w-full bg-white border-2 border-slate-100 p-4 rounded-2xl font-black text-lg outline-none focus:border-blue-500 transition-colors text-slate-800">
-                                </div>
-                                <div>
-                                    <label class="text-xs font-black text-blue-600 uppercase tracking-widest mb-3 block">Inizia alla Cella N°</label>
-                                    <input type="number" id="f-s" value="5" min="5" class="w-full bg-white border-2 border-slate-100 p-4 rounded-2xl font-black text-lg outline-none focus:border-blue-500 transition-colors text-slate-800">
-                                    <span class="text-[9px] font-black text-blue-500 mt-3 block uppercase tracking-widest">Celle 1-4 riservate all'intestazione</span>
-                                </div>
+                                <div><label class="text-xs font-black text-blue-600 uppercase tracking-widest mb-3 block">Quantità Etichette</label><input type="number" id="f-q" value="126" max="136" class="w-full bg-white border-2 border-slate-100 p-4 rounded-2xl font-black text-lg outline-none focus:border-blue-500 transition-colors text-slate-800"></div>
+                                <div><label class="text-xs font-black text-blue-600 uppercase tracking-widest mb-3 block">Inizia alla Cella N°</label><input type="number" id="f-s" value="5" min="5" class="w-full bg-white border-2 border-slate-100 p-4 rounded-2xl font-black text-lg outline-none focus:border-blue-500 transition-colors text-slate-800"><span class="text-[9px] font-black text-blue-500 mt-3 block uppercase tracking-widest">Celle 1-4 riservate all'intestazione</span></div>
                             </div>
                         </div>
-
-                        <!-- Submit -->
-                        <button type="submit" class="w-full bg-[#059669] hover:bg-[#047857] text-white font-black text-xl py-5 rounded-2xl shadow-lg transition-transform active:scale-95 tracking-wide mt-2">
-                            GENERA ANTEPRIMA
-                        </button>
+                        <button type="submit" class="w-full bg-[#059669] hover:bg-[#047857] text-white font-black text-xl py-5 rounded-2xl shadow-lg transition-transform active:scale-95 tracking-wide mt-2">GENERA ANTEPRIMA</button>
                     </form>
                 </div>
             </div>
         </div>
 
-        <div id="tab-corriere" class="hidden max-w-2xl mx-auto">
-            <div class="bg-white rounded-3xl shadow-xl overflow-hidden text-left">
-                <div class="bg-blue-600 p-6 text-white flex justify-between items-center">
-                    <h2 class="font-black text-lg">Modulo Corriere</h2>
-                    <button onclick="window.goHome()" class="hover:text-red-300"><i class="fa-solid fa-xmark fa-lg"></i></button>
-                </div>
-                <div class="flex border-b bg-slate-50 px-4">
-                    <button id="btn-sub-sped" onclick="window.showCorriereSubTab('spedizione')" class="px-4 py-3 text-xs font-black border-b-2 border-blue-600 text-blue-600">Nuova Spedizione</button>
-                    <button id="btn-sub-gest" onclick="window.showCorriereSubTab('gestione')" class="px-4 py-3 text-xs font-bold text-slate-500">Rubrica Clienti</button>
-                    <button id="btn-sub-mit" onclick="window.showCorriereSubTab('mittente')" class="px-4 py-3 text-xs font-bold text-slate-500"><i class="fa-solid fa-gear mr-1"></i> Mittenti</button>
+        <!-- TAB CORRIERE -->
+        <div id="tab-corriere" class="hidden max-w-3xl mx-auto">
+            <div class="bg-white rounded-[2rem] shadow-2xl overflow-hidden text-left">
+                <div class="bg-[#2563eb] p-8 text-white relative">
+                    <h2 class="font-black text-3xl mb-1">Modulo Corriere</h2>
+                    <p class="text-blue-200 text-xs font-bold tracking-[0.2em] uppercase">Spedizioni e Rubrica</p>
+                    <button onclick="window.goHome()" class="absolute top-8 right-8 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors">
+                        <i class="fa-solid fa-xmark text-xl"></i>
+                    </button>
                 </div>
                 
-                <div class="p-6">
+                <div class="flex border-b border-slate-100 bg-white px-8 pt-2">
+                    <button id="btn-sub-sped" onclick="window.showCorriereSubTab('spedizione')" class="px-4 py-4 text-sm font-black border-b-2 border-blue-500 text-blue-600 transition-all">Nuova Spedizione</button>
+                    <button id="btn-sub-gest" onclick="window.showCorriereSubTab('gestione')" class="px-4 py-4 text-sm font-bold border-b-2 border-transparent text-slate-400 transition-all">Rubrica Clienti</button>
+                    <button id="btn-sub-mit" onclick="window.showCorriereSubTab('mittente')" class="px-4 py-4 text-sm font-bold border-b-2 border-transparent text-slate-400 transition-all">Dati Mittente</button>
+                </div>
+                
+                <div class="p-8 bg-slate-50 min-h-[400px]">
+                    
                     <!-- Spedizione -->
                     <div id="sub-tab-spedizione" class="space-y-4">
-                        <div class="bg-blue-50/50 p-3 rounded-xl border border-blue-100 mb-2">
-                            <label class="text-[10px] font-black text-blue-800 uppercase tracking-widest block mb-1">Seleziona Mittente Spedizione</label>
-                            <select id="spedizione-seleziona-mittente" onchange="window.cambiaMittenteAttivo(this.value)" class="w-full bg-white border border-blue-200 p-2 rounded-lg font-bold text-sm outline-none text-blue-900 shadow-sm"></select>
+                        <div class="bg-blue-50/50 p-4 rounded-2xl border border-blue-100 mb-4">
+                            <label class="text-[10px] font-black text-blue-800 uppercase tracking-widest block mb-2">Seleziona Mittente Spedizione</label>
+                            <select id="spedizione-seleziona-mittente" onchange="window.cambiaMittenteAttivo(this.value)" class="w-full bg-white border border-blue-200 p-3 rounded-xl font-bold text-sm outline-none text-blue-900 shadow-sm"></select>
                         </div>
                         
-                        <select id="select-rubrica" onchange="window.syncRubrica()" class="f-input"><option>Caricamento rubrica...</option></select>
-                        <form onsubmit="window.viewCorriere(event)" class="space-y-3">
+                        <select id="select-rubrica" onchange="window.syncRubrica()" class="f-input mb-4"><option>Caricamento rubrica...</option></select>
+                        <form onsubmit="window.viewCorriere(event)" class="space-y-4">
                             <input type="text" id="c-n" required class="f-input font-bold" placeholder="Destinatario">
                             <input type="text" id="c-i" required class="f-input" placeholder="Indirizzo">
-                            <div class="grid grid-cols-3 gap-3">
-                                <input type="text" id="c-c" required class="f-input" placeholder="CAP"><input type="text" id="c-t" required class="f-input" placeholder="Città"><input type="text" id="c-r" maxlength="2" class="f-input font-bold" placeholder="PR">
+                            <div class="grid grid-cols-3 gap-4">
+                                <input type="text" id="c-c" required class="f-input" placeholder="CAP"><input type="text" id="c-t" required class="f-input" placeholder="Città"><input type="text" id="c-r" maxlength="2" class="f-input font-bold" placeholder="Provincia (Opzionale)">
                             </div>
-                            <div class="grid grid-cols-2 gap-3"><input type="text" id="c-tel" class="f-input" placeholder="Telefono (Opzionale)"><input type="text" id="c-note" class="f-input" placeholder="Note Spedizione (Opzionale)"></div>
-                            <button type="submit" class="w-full bg-blue-600 text-white font-black py-4 rounded-xl text-sm mt-2">GENERA ETICHETTA CORRIERE</button>
+                            <div class="grid grid-cols-2 gap-4"><input type="text" id="c-tel" class="f-input" placeholder="Telefono (Opzionale)"><input type="text" id="c-note" class="f-input" placeholder="Note Spedizione (Opzionale)"></div>
+                            <button type="submit" class="w-full bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-black py-5 rounded-2xl text-lg mt-4 shadow-lg transition-transform active:scale-95">GENERA ETICHETTA</button>
                         </form>
                     </div>
 
-                    <!-- Gestione Rubrica -->
+                    <!-- Gestione Rubrica (Screenshot Style) -->
                     <div id="sub-tab-gestione" class="hidden">
-                        <div id="rubrica-form-box" class="bg-slate-50 border border-slate-200 rounded-xl p-4 hidden mb-4 space-y-3">
-                            <h4 id="rubrica-form-title" class="text-xs font-black text-slate-700">Nuovo</h4>
-                            <div class="grid grid-cols-2 gap-2">
-                                <input type="text" id="m-nome" class="f-input p-2 text-xs font-bold" placeholder="Nome">
-                                <input type="text" id="m-tel" class="f-input p-2 text-xs" placeholder="Tel">
+                        
+                        <!-- Form Nuovo/Modifica (Inizialmente Nascosto) -->
+                        <div id="rubrica-form-box" class="bg-white border-2 border-blue-100 rounded-2xl p-6 hidden mb-6 shadow-sm">
+                            <h4 id="rubrica-form-title" class="text-sm font-black text-slate-800 mb-4 uppercase tracking-wide">Nuovo Contatto</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                                <input type="text" id="m-nome" class="f-input text-sm font-bold" placeholder="Nome o Ragione Sociale">
+                                <input type="text" id="m-tel" class="f-input text-sm" placeholder="Telefono">
                             </div>
-                            <input type="text" id="m-ind" class="f-input p-2 text-xs" placeholder="Indirizzo">
-                            <div class="grid grid-cols-3 gap-2">
-                                <input type="text" id="m-cap" class="f-input p-2 text-xs" placeholder="CAP">
-                                <input type="text" id="m-citta" class="f-input p-2 text-xs" placeholder="Città">
-                                <input type="text" id="m-prov" class="f-input p-2 text-xs" placeholder="PR">
+                            <input type="text" id="m-ind" class="f-input text-sm mb-3" placeholder="Indirizzo (Via, Numero)">
+                            <div class="grid grid-cols-3 gap-3 mb-3">
+                                <input type="text" id="m-cap" class="f-input text-sm" placeholder="CAP">
+                                <input type="text" id="m-citta" class="f-input text-sm" placeholder="Città">
+                                <input type="text" id="m-prov" class="f-input text-sm" placeholder="PR (es. NA)">
                             </div>
-                            <input type="text" id="m-note" class="f-input p-2 text-xs" placeholder="Note">
-                            <div class="flex justify-end gap-2 pt-1">
-                                <button type="button" onclick="window.annullaModifica()" class="px-3 py-1 bg-slate-200 text-xs font-bold rounded">Annulla</button>
-                                <button type="button" onclick="window.salvaContatto()" class="px-3 py-1 bg-blue-600 text-white text-xs font-bold rounded">Salva</button>
+                            <input type="text" id="m-note" class="f-input text-sm mb-4" placeholder="Note (Opzionale)">
+                            <div class="flex justify-end gap-3 pt-2 border-t border-slate-100">
+                                <button type="button" onclick="window.annullaModifica()" class="px-5 py-2.5 bg-slate-100 text-slate-600 hover:bg-slate-200 text-xs font-black rounded-xl transition-colors uppercase tracking-wide">Annulla</button>
+                                <button type="button" onclick="window.salvaContatto()" class="px-5 py-2.5 bg-blue-600 text-white hover:bg-blue-700 text-xs font-black rounded-xl transition-colors uppercase tracking-wide shadow-md">Salva Contatto</button>
                             </div>
                         </div>
-                        <div class="mb-4 flex gap-2">
-                            <input type="text" oninput="window.renderRubricaList(this.value)" class="f-input text-xs p-2" placeholder="Cerca in rubrica...">
-                            <button type="button" onclick="window.avviaNuovoContatto()" class="bg-secondary text-white text-xs font-bold px-4 py-2 rounded-xl whitespace-nowrap"><i class="fa-solid fa-plus"></i> Aggiungi</button>
+
+                        <!-- Barra di Ricerca e Aggiunta -->
+                        <div class="mb-6 flex flex-col md:flex-row gap-4 items-center border-b border-slate-200 pb-6">
+                            <div class="relative flex-grow w-full">
+                                <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                                <input type="text" oninput="window.renderRubricaList(this.value)" class="w-full bg-white border border-slate-200 rounded-full py-3.5 pl-10 pr-4 text-sm font-medium text-slate-700 outline-none focus:border-blue-500 shadow-sm" placeholder="Cerca cliente per nome o città...">
+                            </div>
+                            <button type="button" onclick="window.avviaNuovoContatto()" class="bg-[#007bff] hover:bg-blue-700 text-white text-sm font-black px-6 py-3.5 rounded-full whitespace-nowrap shadow-md transition-colors w-full md:w-auto">
+                                <i class="fa-solid fa-plus mr-1"></i> NUOVO CONTATTO
+                            </button>
                         </div>
-                        <div id="rubrica-list-container" class="space-y-2 max-h-[300px] overflow-y-auto"></div>
+                        
+                        <!-- Lista Card Contatti -->
+                        <div id="rubrica-list-container" class="space-y-3 max-h-[500px] overflow-y-auto pr-2 pb-4"></div>
                     </div>
 
                     <!-- Impostazioni Mittente -->
                     <div id="sub-tab-mittente" class="hidden space-y-4">
-                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
-                            <div class="flex justify-between items-center">
-                                <h3 class="text-xs font-black text-slate-700 uppercase tracking-wide"><i class="fa-solid fa-id-card"></i> Gestione Mittenti</h3>
-                                <button type="button" onclick="window.nuovoMittente()" class="text-blue-600 text-xs font-bold bg-blue-100 px-2 py-1 rounded hover:bg-blue-200"><i class="fa-solid fa-plus"></i> Nuovo</button>
+                        <div class="bg-white p-6 rounded-[1.5rem] shadow-sm border border-slate-100 space-y-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <h3 class="text-sm font-black text-slate-800 uppercase tracking-wide">Gestione Mittenti</h3>
+                                <button type="button" onclick="window.nuovoMittente()" class="text-blue-600 text-xs font-bold bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100"><i class="fa-solid fa-plus"></i> Nuovo</button>
                             </div>
                             
-                            <select id="gestione-seleziona-mittente" onchange="window.caricaCampiMittenteForm(this.value)" class="f-input text-sm">
-                                <option value="">-- Seleziona un mittente da modificare --</option>
-                            </select>
+                            <select id="gestione-seleziona-mittente" onchange="window.caricaCampiMittenteForm(this.value)" class="f-input text-sm"></select>
+                            <hr class="border-slate-100 my-4">
 
                             <input type="hidden" id="mit-id">
                             <input type="text" id="mit-nome" class="f-input uppercase font-bold" placeholder="Ragione Sociale Mittente">
@@ -882,21 +761,35 @@
                                 <input type="text" id="mit-prov" maxlength="2" class="f-input uppercase font-bold" placeholder="PR">
                             </div>
                             
-                            <div class="flex items-center gap-2 mt-2 bg-white p-3 rounded-xl border border-slate-200">
-                                <input type="checkbox" id="mit-def" class="w-5 h-5 accent-emerald-500">
-                                <label for="mit-def" class="text-xs font-bold text-slate-600 cursor-pointer">Imposta come predefinito per tutte le spedizioni</label>
+                            <div class="flex items-center gap-3 mt-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                <input type="checkbox" id="mit-def" class="w-5 h-5 accent-emerald-500 rounded">
+                                <label for="mit-def" class="text-sm font-bold text-slate-700 cursor-pointer">Imposta come predefinito per tutte le spedizioni</label>
                             </div>
                             
-                            <div class="flex gap-2 pt-2">
-                                <button type="button" id="btn-del-mit" onclick="window.eliminaMittenteCloud()" class="hidden bg-red-100 text-red-600 font-black py-3 px-4 rounded-xl text-xs uppercase hover:bg-red-200 transition-colors"><i class="fa-solid fa-trash"></i></button>
-                                <button type="button" onclick="window.salvaMittenteCloud()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3 rounded-xl text-xs uppercase tracking-wider transition-colors mt-0"><i class="fa-solid fa-floppy-disk mr-1"></i> Salva Mittente</button>
-                            </div>
+                            <button type="button" onclick="window.salvaMittenteCloud()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-xl text-sm uppercase tracking-wider transition-colors mt-4 shadow-md"><i class="fa-solid fa-floppy-disk mr-1"></i> Salva Mittente</button>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </main>
+
+    <!-- Modal Avviso Eliminazione (Sostituisce alert/confirm di sistema) -->
+    <div id="modal-conferma-eliminazione" class="fixed inset-0 z-[3000] bg-slate-900/60 backdrop-blur-sm hidden flex justify-center items-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden text-center border border-slate-100 transform transition-all">
+            <div class="bg-rose-500 p-6 text-white flex justify-center items-center">
+                <i class="fa-solid fa-triangle-exclamation text-5xl"></i>
+            </div>
+            <div class="p-8">
+                <h3 class="font-black text-xl text-slate-800 mb-2">Sei Sicuro?</h3>
+                <p class="text-sm text-slate-500 mb-8 font-medium">Questa azione eliminerà il contatto dal database cloud e non può essere annullata.</p>
+                <div class="flex gap-3 justify-center">
+                    <button onclick="window.chiudiModalEliminazione()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3 px-4 rounded-xl text-sm transition-colors">ANNULLA</button>
+                    <button onclick="window.confermaEliminazione()" class="flex-1 bg-rose-500 hover:bg-rose-600 text-white font-bold py-3 px-4 rounded-xl text-sm transition-colors shadow-lg shadow-rose-500/30">SI, ELIMINA</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Modal Nuovo Prodotto / Lotto -->
     <div id="modal-nuovo-lotto" class="fixed inset-0 z-[2000] bg-black/80 backdrop-blur-sm hidden flex justify-center items-center p-4">
@@ -910,7 +803,6 @@
                     <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 block">Nome Prodotto</label>
                     <input list="prod-list" id="nl-nome" class="w-full bg-white border-2 border-slate-200 p-4 rounded-xl font-bold text-slate-800 outline-none focus:border-emerald-500 shadow-sm" placeholder="Es. FOLIFERRO">
                     <datalist id="prod-list"></datalist>
-                    <p class="text-[9px] text-slate-400 mt-1 font-bold">Inizia a scrivere per selezionare uno esistente o scrivi un nome nuovo.</p>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
@@ -922,13 +814,12 @@
                         <input type="text" id="nl-scad" class="w-full bg-white border-2 border-slate-200 p-4 rounded-xl font-bold text-slate-800 outline-none focus:border-emerald-500 shadow-sm" placeholder="Es. 04/29">
                     </div>
                 </div>
-                <button onclick="window.salvaNuovoLotto()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-xl text-lg mt-2 shadow-lg transition-transform active:scale-95 flex justify-center items-center gap-2">
-                    <i class="fa-solid fa-floppy-disk"></i> SALVA E USA
-                </button>
+                <button onclick="window.salvaNuovoLotto()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-xl text-lg mt-2 shadow-lg transition-transform active:scale-95">SALVA E USA</button>
             </div>
         </div>
     </div>
 
+    <!-- AREE DI STAMPA -->
     <div id="print-lotti-area"><div id="grid-l" class="grid-labels"></div></div>
 
     <div id="print-corriere-area" class="flex flex-col justify-between h-full bg-white text-slate-900">
@@ -941,7 +832,9 @@
             <span class="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-2">CONSEGNARE A:</span>
             <strong id="p-n" class="text-5xl block font-black leading-tight text-slate-950 uppercase mb-3"></strong>
             <p id="p-i" class="text-3xl font-bold text-slate-800 mb-1 uppercase"></p>
-            <p class="text-3xl font-black text-slate-950 uppercase"><span id="p-c"></span> - <span id="p-t"></span> (<span id="p-r"></span>)</p>
+            
+            <!-- Risolto problema parentesi vuote qui -->
+            <p id="p-loc-string" class="text-3xl font-black text-slate-950 uppercase"></p>
             
             <div id="p-tel-box" class="mt-4 pt-4 border-t-4 border-slate-100 hidden">
                 <p class="text-xl font-bold text-slate-900">Tel: <span id="p-tel" class="font-black text-2xl"></span></p>
