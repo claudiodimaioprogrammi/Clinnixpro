@@ -102,6 +102,338 @@
         const db = getFirestore(app);
         const appId = 'clinnix-pro-v1';
 
+        // Dizionario traduzioni quadrilingue (Italiano, Inglese, Singalese, Tamil)
+        const translations = {
+          it: {
+            accessTitle: "Area Riservata Team",
+            accessButton: "Accedi al magazzino",
+            pinError: "PIN errato, riprova.",
+            newStock: 'Nuovo Rifornimento',
+            newItem: 'Nuovo Articolo...',
+            searchItem: 'Cerca un articolo...',
+            orderList: 'Lista Ordini',
+            orderDesc: 'Prodotti contrassegnati manualmente per l\'ordine.',
+            whatsAppOrderBtn: 'ORDINA WHATSAPP',
+            noOrders: 'Nessun prodotto in lista ordini.',
+            supplyRegister: 'Registro Rifornimenti',
+            noSupply: 'Nessun rifornimento registrato.',
+            movementHistory: 'Storico Movimenti',
+            movementDesc: 'Tutte le attività recenti del magazzino.',
+            clearAll: 'PULISCI TUTTO',
+            sampleOutflows: 'Uscite Campioni',
+            directory: 'RUBRICA',
+            congresses: 'CONGRESSI',
+            newButton: 'NUOVA',
+            noShipments: 'Nessuna uscita registrata.',
+            newAssignment: 'Nuova Assegnazione',
+            back: 'Indietro',
+            repName: 'Nome Informatore',
+            congName: 'Nome Congresso',
+            placeRegion: 'Regione/Luogo',
+            selectProducts: 'Seleziona Prodotti',
+            addManual: 'Aggiungi altro manualmente',
+            addRow: 'Aggiungi riga',
+            saveAssignment: 'REGISTRA ASSEGNAZIONE',
+            repDirectory: 'Rubrica Informatori',
+            searchName: 'Cerca nome...',
+            searchCong: 'Cerca congresso...',
+            congArchive: 'Archivio Congressi',
+            placeNotSpecified: 'Luogo non specificato',
+            historyBtn: 'STORICO',
+            detailsBtn: 'DETTAGLI',
+            newNote: 'Nuova Nota',
+            editNote: 'Modifica Nota',
+            subject: 'Oggetto...',
+            notesPlaceholder: 'Appunti...',
+            saveBtn: 'SALVA',
+            cancelBtn: 'ANNULLA',
+            lotsTitle: 'Lotti e Scadenze',
+            addLot: 'AGGIUNGI LOTTO',
+            saveLots: 'SALVA LOTTI',
+            sendOrder: 'Invia Ordine',
+            allDepts: 'TUTTI I REPARTI',
+            singleDepts: 'Singoli Reparti',
+            deleteProduct: 'Elimina Prodotto',
+            deleteConfirm: 'Vuoi davvero eliminare definitivamente',
+            yesDelete: 'Sì, Elimina',
+            clearConfirmTitle: 'Sei Sicuro?',
+            clearConfirmText: 'Questa operazione cancellerà definitivamente l\'intero storico movimenti. Non potrai tornare indietro.',
+            whatsappAlert: 'Nessun prodotto contrassegnato per l\'ordine!',
+            hideSamples: 'Nascondi da "Assegna Campioni"',
+            noLotsMode: 'Non gestire i Lotti',
+            totalPz: 'Totale Pz',
+            pzCart: 'Pz x Cart',
+            alertPz: 'Allarme Pz',
+            pzConf: 'Pz/Conf',
+            scortaBassa: 'SCORTA BASSA',
+            inLista: 'IN LISTA',
+            inArrivo: 'IN ARRIVO',
+            confezioni: 'Conf.',
+            scatoleSciolte: 'cart. + {singoli} pz',
+            senzaLotto: 'S.L. (Senza Lotto)',
+            registraOrdine: 'REGISTRA ORDINE',
+            modificaOrdine: 'MODIFICA ORDINE',
+            pezziInArrivo: 'Pezzi in Arrivo',
+            dataOrdine: 'Data Ordine',
+            arrivoPrevisto: 'Arrivo Previsto',
+            registratoIl: 'Registrato il',
+            noteApp: 'Note',
+            magazzinoApp: 'Magazzino',
+            ordiniApp: 'Ordini',
+            storicoApp: 'Storico',
+            campioniApp: 'Campioni',
+            print: 'STAMPA',
+            excel: 'EXCEL',
+            all: 'TUTTI'
+          },
+          en: {
+            accessTitle: "Team Restricted Area",
+            accessButton: "Access Warehouse",
+            pinError: "Incorrect PIN, try again.",
+            newStock: 'New Stock',
+            newItem: 'New Item...',
+            searchItem: 'Search items...',
+            orderList: 'Order List',
+            orderDesc: 'Products flagged manually for the order.',
+            whatsAppOrderBtn: 'WHATSAPP ORDER',
+            noOrders: 'No products in order list.',
+            supplyRegister: 'Supply Register',
+            noSupply: 'No supplies registered.',
+            movementHistory: 'Movement History',
+            movementDesc: 'All recent warehouse activities.',
+            clearAll: 'CLEAR ALL',
+            sampleOutflows: 'Sample Outflows',
+            directory: 'DIRECTORY',
+            congresses: 'CONGRESSES',
+            newButton: 'NEW',
+            noShipments: 'No registered outflows.',
+            newAssignment: 'New Assignment',
+            back: 'Back',
+            repName: 'Representative Name',
+            congName: 'Congress Name',
+            placeRegion: 'Region/Location',
+            selectProducts: 'Select Products',
+            addManual: 'Add manually',
+            addRow: 'Add row',
+            saveAssignment: 'REGISTER ASSIGNMENT',
+            repDirectory: 'Representatives Directory',
+            searchName: 'Search name...',
+            searchCong: 'Search congress...',
+            congArchive: 'Congress Archive',
+            placeNotSpecified: 'Location not specified',
+            historyBtn: 'HISTORY',
+            detailsBtn: 'DETAILS',
+            newNote: 'New Note',
+            editNote: 'Edit Note',
+            subject: 'Subject...',
+            notesPlaceholder: 'Notes...',
+            saveBtn: 'SAVE',
+            cancelBtn: 'CANCEL',
+            lotsTitle: 'Lots and Expirations',
+            addLot: 'ADD LOT',
+            saveLots: 'SAVE LOTS',
+            sendOrder: 'Send Order',
+            allDepts: 'ALL DEPARTMENTS',
+            singleDepts: 'Single Departments',
+            deleteProduct: 'Delete Product',
+            deleteConfirm: 'Do you really want to permanently delete',
+            yesDelete: 'Yes, Delete',
+            clearConfirmTitle: 'Are you sure?',
+            clearConfirmText: 'This operation will permanently delete the entire movement history. You cannot go back.',
+            whatsappAlert: 'No products flagged for order!',
+            hideSamples: 'Hide from "Assign Samples"',
+            noLotsMode: 'Do not manage Lots',
+            totalPz: 'Total Pz',
+            pzCart: 'Pz x Box',
+            alertPz: 'Alert Pz',
+            pzConf: 'Pz/Pack',
+            scortaBassa: 'LOW STOCK',
+            inLista: 'IN LIST',
+            inArrivo: 'INCOMING',
+            confezioni: 'Packs',
+            scatoleSciolte: 'boxes + {singoli} pz',
+            senzaLotto: 'N.L. (No Lot)',
+            registraOrdine: 'REGISTER ORDER',
+            modificaOrdine: 'EDIT ORDER',
+            pezziInArrivo: 'Incoming Pieces',
+            dataOrdine: 'Order Date',
+            arrivoPrevisto: 'Expected Arrival',
+            registratoIl: 'Registered on',
+            noteApp: 'Notes',
+            magazzinoApp: 'Inventory',
+            ordiniApp: 'Orders',
+            storicoApp: 'History',
+            campioniApp: 'Samples',
+            print: 'PRINT',
+            excel: 'EXCEL',
+            all: 'ALL'
+          },
+          si: {
+            accessTitle: "කණ්ඩායම් සීමිත ප්‍රදේශය (Team Area)",
+            accessButton: "ගබඩාවට පිවිසෙන්න",
+            pinError: "PIN අංකය වැරදියි, නැවත උත්සාහ කරන්න.",
+            newStock: 'නව තොගය (New Stock)',
+            newItem: 'නව නිෂ්පාදනය...',
+            searchItem: 'අයිතම සොයන්න...',
+            orderList: 'ඇණවුම් ලැයිස්තුව',
+            orderDesc: 'ඇණවුම සඳහා හස්තීයව සලකුණු කරන ලද නිෂ්පාදන.',
+            whatsAppOrderBtn: 'WHATSAPP ඇණවුම',
+            noOrders: 'ඇණවුම් ලැයිස්තුවේ කිසිදු නිෂ්පාදනයක් නොමැත.',
+            supplyRegister: 'තොග ලේඛනය',
+            noSupply: 'කිසිදු තොගයක් ලියාපදිංචි කර නැත.',
+            movementHistory: 'චලන ඉතිහාසය',
+            movementDesc: 'සියලුම මෑත කාලීන ගබඩා ක්‍රියාකාරකම්.',
+            clearAll: 'සියල්ල මකන්න',
+            sampleOutflows: 'නියැදි නිකුත් කිරීම්',
+            directory: 'සම්බන්ධතා',
+            congresses: 'සම්මේලන',
+            newButton: 'නව',
+            noShipments: 'කිසිදු පිටවීමක් ලියාපදිංචි කර නැත.',
+            newAssignment: 'නව පැවරුම',
+            back: 'ආපසු',
+            repName: 'නියෝජිතයාගේ නම',
+            congName: 'සම්මේලනයේ නම',
+            placeRegion: 'ප්‍රදේශය/ස්ථානය',
+            selectProducts: 'නිෂ්පාදන තෝරන්න',
+            addManual: 'හස්තීයව තවත් එකතු කරන්න',
+            addRow: 'පේළියක් එකතු කරන්න',
+            saveAssignment: 'පැවරුම ලියාපදිංචි කරන්න',
+            repDirectory: 'නියෝජිත නාමාවලිය',
+            searchName: 'නම සොයන්න...',
+            searchCong: 'සම්මේලනය සොයන්න...',
+            congArchive: 'සම්මේලන ලේඛනාගාරය',
+            placeNotSpecified: 'ස්ථානය සඳහන් කර නැත',
+            historyBtn: 'ඉතිහාසය',
+            detailsBtn: 'විස්තර',
+            newNote: 'නව සටහන',
+            editNote: 'සටහන සංස්කරණය',
+            subject: 'මාතෘකාව...',
+            notesPlaceholder: 'සටහන්...',
+            saveBtn: 'සුරකින්න',
+            cancelBtn: 'අවලංගු කරන්න',
+            lotsTitle: 'කාණ්ඩ සහ කල් ඉකුත්වීම්',
+            addLot: 'කාණ්ඩයක් එකතු කරන්න',
+            saveLots: 'කාණ්ඩ සුරකින්න',
+            sendOrder: 'ඇණවුම යවන්න',
+            allDepts: 'සියලුම අංශ',
+            singleDepts: 'තනි අංශ',
+            deleteProduct: 'නිෂ්පාදනය මකන්න',
+            deleteConfirm: 'ඔබට ස්ථිරවම මකා දැමීමට අවශ්‍යද',
+            yesDelete: 'ඔව්, මකන්න',
+            clearConfirmTitle: 'ඔබට විශ්වාසද?',
+            clearConfirmText: 'මෙමගින් ඔබගේ සමස්ත ඉතිහාසයම ස්ථිරවම මැකී යනු ඇත. මෙය නැවත වෙනස් කල නොහැක.',
+            whatsappAlert: 'ඇණවුම සඳහා කිසිදු නිෂ්පාදනයක් සලකුණු කර නැත!',
+            hideSamples: 'නියැදි ලැයිස්තුවෙන් සඟවන්න',
+            noLotsMode: 'කාණ්ඩ කළමනාකරණය නොකරන්න',
+            totalPz: 'මුළු එකතුව',
+            pzCart: 'පෙට්ටියක ප්‍රමාණය',
+            alertPz: 'අවම සීමාව',
+            pzConf: 'පැකට්ටුවක ප්‍රමාණය',
+            scortaBassa: 'අඩු තොග',
+            inLista: 'ලැයිස්තුවේ',
+            inArrivo: 'පැමිණීමට ඇත',
+            confezioni: 'පැකට්',
+            scatoleSciolte: 'පෙට්ටි + {singoli} pz',
+            senzaLotto: 'S.L. (කාණ්ඩ නොමැත)',
+            registraOrdine: 'ඇණවුම ලියාපදිංචි කරන්න',
+            modificaOrdine: 'ඇණවුම සංස්කරණය',
+            pezziInArrivo: 'ලැබීමට ඇති ප්‍රමාණය',
+            dataOrdine: 'ඇණවුම් කල දිනය',
+            arrivoPrevisto: 'ලැබෙන දිනය',
+            registratoIl: 'ලියාපදිංචි කල දිනය',
+            noteApp: 'සටහන්',
+            magazzinoApp: 'ගබඩාව',
+            ordiniApp: 'ඇණවුම්',
+            storicoApp: 'ඉතිහාසය',
+            campioniApp: 'සාම්පල',
+            print: 'මුද්‍රණය',
+            excel: 'EXCEL',
+            all: 'සියල්ල'
+          },
+          ta: {
+            accessTitle: "குழுவிற்கான ஒதுக்கப்பட்ட பகுதி (Team Area)",
+            accessButton: "கிடங்கிற்குள் நுழையவும்",
+            pinError: "தவறான PIN, மீண்டும் முயற்சிக்கவும்.",
+            newStock: 'புதிய இருப்பு (New Stock)',
+            newItem: 'புதிய தயாரிப்பு...',
+            searchItem: 'பொருட்களைத் தேடுங்கள்...',
+            orderList: 'ஆர்டர் பட்டியல்',
+            orderDesc: 'ஆர்டர் செய்ய கைமுறையாகக் குறிக்கப்பட்ட தயாரிப்புகள்.',
+            whatsAppOrderBtn: 'WHATSAPP ஆர்டர்',
+            noOrders: 'ஆர்டர் பட்டியலில் தயாரிப்புகள் எதுவும் இல்லை.',
+            supplyRegister: 'இருப்புப் பதிவு',
+            noSupply: 'இருப்பு எதுவும் பதிவு செய்யப்படவில்லை.',
+            movementHistory: 'இயக்க வரலாறு',
+            movementDesc: 'அனைத்து சமீபத்திய கிடங்கு நடவடிக்கைகள்.',
+            clearAll: 'அனைத்தையும் அழி',
+            sampleOutflows: 'மாதிரி வழங்கல்கள்',
+            directory: 'தொடர்புகள்',
+            congresses: 'மாநாடுகள்',
+            newButton: 'புதியது',
+            noShipments: 'எந்தவொரு வழங்கல்களும் பதிவு செய்யப்படவில்லை.',
+            newAssignment: 'புதிய ஒதுக்கீடு',
+            back: 'பின்செல்',
+            repName: 'பிரதிநிதியின் பெயர்',
+            congName: 'மாநாட்டின் பெயர்',
+            placeRegion: 'பகுதி/இடம்',
+            selectProducts: 'தயாரிப்புகளைத் தேர்ந்தெடுக்கவும்',
+            addManual: 'கைமுறையாக மேலும் சேர்க்கவும்',
+            addRow: 'வரிசையைச் சேர்க்கவும்',
+            saveAssignment: 'ஒதுக்கீட்டைப் பதிவுசெய்',
+            repDirectory: 'பிரதிநிதிகள் அடைவு',
+            searchName: 'பெயரைத் தேடுங்கள்...',
+            searchCong: 'மாநாட்டைத் தேடுங்கள்...',
+            congArchive: 'மாநாடுகள் காப்பகம்',
+            placeNotSpecified: 'இடம் குறிப்பிடப்படவில்லை',
+            historyBtn: 'வரலாறு',
+            detailsBtn: 'விவரங்கள்',
+            newNote: 'புதிய குறிப்பு',
+            editNote: 'குறிப்பைத் தொகு',
+            subject: 'பொருள்...',
+            notesPlaceholder: 'குறிப்புகள்...',
+            saveBtn: 'சேமி',
+            cancelBtn: 'ரத்துசெய்',
+            lotsTitle: 'தொகுதிகள் மற்றும் காலாவதி',
+            addLot: 'தொகுதியைச் சேர்',
+            saveLots: 'தொகுதிகளைச் சேமி',
+            sendOrder: 'ஆர்டரை அனுப்பு',
+            allDepts: 'அனைத்து பிரிவுகளும்',
+            singleDepts: 'தனிப்பட்ட பிரிவுகள்',
+            deleteProduct: 'தயாரிப்பை நீக்கு',
+            deleteConfirm: 'நீங்கள் நிச்சயமாக நிரந்தரமாக நீக்க விரும்புகிறீர்களா',
+            yesDelete: 'ஆம், நீக்கு',
+            clearConfirmTitle: 'நிச்சயமாகவா?',
+            clearConfirmText: 'இது உங்கள் முழு இயக்க வரலாற்றையும் நிரந்தரமாக அழித்துவிடும். இதை மாற்ற முடியாது.',
+            whatsappAlert: 'ஆர்டருக்காக எந்தவொரு தயாரிப்பும் குறிக்கப்படவில்லை!',
+            hideSamples: 'மாதிரி பட்டியலிலிருந்து மறைக்கவும்',
+            noLotsMode: 'தொகுதிகளை நிர்வகிக்க வேண்டாம்',
+            totalPz: 'மொத்த எண்ணிக்கை',
+            pzCart: 'ஒரு பெட்டியின் அளவு',
+            alertPz: 'குறைந்தபட்ச வரம்பு',
+            pzConf: 'ஒரு பேக்கின் அளவு',
+            scortaBassa: 'குறைந்த இருப்பு',
+            inLista: 'பட்டியலில்',
+            inArrivo: 'வரவிருக்கிறது',
+            confezioni: 'பேக்குகள்',
+            scatoleSciolte: 'பெட்டிகள் + {singoli} pz',
+            senzaLotto: 'S.L. (தொகுதி இல்லை)',
+            registraOrdine: 'ஆர்டரைப் பதிவுசெய்',
+            modificaOrdine: 'ஆர்டரைத் தொகு',
+            pezziInArrivo: 'வரவிருக்கும் பொருட்கள்',
+            dataOrdine: 'ஆர்டர் செய்யப்பட்ட தேதி',
+            arrivoPrevisto: 'எதிர்பார்க்கும் வருகை',
+            registratoIl: 'பதிவு செய்யப்பட்ட தேதி',
+            noteApp: 'குறிப்புகள்',
+            magazzinoApp: 'கிடங்கு',
+            ordiniApp: 'ஆர்டர்கள்',
+            storicoApp: 'வரலாறு',
+            campioniApp: 'மாதிரிகள்',
+            print: 'அச்சிடுக',
+            excel: 'EXCEL',
+            all: 'அனைத்து'
+          }
+        };
+
         function App() {
           const [user, setUser] = useState(null);
           const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -112,7 +444,7 @@
           const CORRECT_PIN = '12345'; 
 
           const [shipments, setShipments] = useState([]);
-          const [items, setNewItems] = useState([]);
+          const [items, setItems] = useState([]);
           const [notes, setNotes] = useState([]);
           const [logs, setLogs] = useState([]);
           const [informatori, setInformatori] = useState([]); 
@@ -153,6 +485,13 @@
           const [calcPos, setCalcPos] = useState({ x: null, y: null });
           const [isDraggingCalc, setIsDraggingCalc] = useState(false);
           const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+
+          const toggleLang = () => {
+              if (lang === 'it') setLang('en');
+              else if (lang === 'en') setLang('si');
+              else if (lang === 'si') setLang('ta');
+              else setLang('it');
+          };
 
           const handleCalcPointerDown = (e) => {
               setIsDraggingCalc(true);
@@ -258,7 +597,7 @@
             const base = ['artifacts', appId, 'public', 'data'];
             const unsub = [
               onSnapshot(collection(db, ...base, 'shipments'), s => setShipments(s.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (b.createdAt||0) - (a.createdAt||0)))),
-              onSnapshot(collection(db, ...base, 'items'), s => setNewItems(s.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => ((a.name||'').localeCompare(b.name||''))))),
+              onSnapshot(collection(db, ...base, 'items'), s => setItems(s.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => ((a.name||'').localeCompare(b.name||''))))),
               onSnapshot(collection(db, ...base, 'notes'), s => setNotes(s.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (b.createdAt||0) - (a.createdAt||0)))),
               onSnapshot(collection(db, ...base, 'logs'), s => setLogs(s.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (b.date||0) - (a.date||0)))),
               onSnapshot(collection(db, ...base, 'informatori'), s => setInformatori(s.docs.map(d => ({id: d.id, ...d.data()})))),
@@ -399,6 +738,17 @@
             setEditingItemId(null);
           };
 
+          // FUNZIONE RISOLUTIVA BUG ORDINI: Rimuove l'ordine e pulisce integralmente i dati di acquisto
+          const handleCancelOrder = async (item) => {
+              await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'items', item.id), { 
+                  isToOrder: false,
+                  incoming: 0,
+                  incomingDate: "",
+                  orderDate: ""
+              });
+              addLog(`Annullato e rimosso ordine per: ${item.name}`, 'edit');
+          };
+
           const handleAssignSamples = async () => {
             if (!newDest.trim()) return;
             const id = `CAMP-${Date.now().toString().slice(-5)}`;
@@ -453,7 +803,7 @@
 
           const handleWhatsAppReminder = () => {
               const toOrder = items.filter(i => i.isToOrder);
-              if(toOrder.length === 0) { alert(lang === 'it' ? "Nessun prodotto contrassegnato per l'ordine!" : "No orders!"); return; }
+              if(toOrder.length === 0) { alert(translations[lang].whatsappAlert); return; }
               setShowWhatsAppModal(true);
           };
 
@@ -464,7 +814,13 @@
               }
               if(toOrder.length === 0) return;
               
-              let msg = lang === 'it' ? `📦 *Ordini ClinnixPro${category === 'Tutto' ? '' : ` - ${category.toUpperCase()}`}* 📦\n\nProdotti da ordinare:\n\n` : `📦 *ClinnixPro Orders${category === 'Tutto' ? '' : ` - ${category.toUpperCase()}`}* 📦\n\nProducts:\n\n`;
+              let msg = lang === 'it' 
+                ? `📦 *Ordini ClinnixPro${category === 'Tutto' ? '' : ` - ${category.toUpperCase()}`}* 📦\n\nProdotti da ordinare:\n\n` 
+                : lang === 'en'
+                  ? `📦 *ClinnixPro Orders${category === 'Tutto' ? '' : ` - ${category.toUpperCase()}`}* 📦\n\nProducts:\n\n`
+                  : lang === 'si'
+                    ? `📦 *ClinnixPro ඇණවුම්${category === 'Tutto' ? '' : ` - ${category.toUpperCase()}`}* 📦\n\nඇණවුම් කිරීමට ඇති නිෂ්පාදන:\n\n`
+                    : `📦 *ClinnixPro ஆர்டர்கள்${category === 'Tutto' ? '' : ` - ${category.toUpperCase()}`}* 📦\n\nஆர்டர் செய்ய வேண்டிய தயாரிப்புகள்:\n\n`;
               toOrder.forEach(i => { msg += `🔸 *${i.name || 'Prodotto'}* (Giacenza: ${i.stock} pz)\n`; });
               window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
               setShowWhatsAppModal(false);
@@ -478,10 +834,17 @@
 
           if (!isAuthenticated) {
             return (
-              <div className="min-h-screen flex flex-col items-center justify-center bg-[#1e2330] p-4 text-center">
+              <div className="min-h-screen flex flex-col items-center justify-center bg-[#1e2330] p-4 text-center relative">
+                 {/* Selettore della lingua in alto a destra nella schermata di blocco */}
+                 <div className="absolute top-4 right-4 flex gap-2">
+                     <button onClick={toggleLang} className="p-2.5 bg-slate-800 text-white rounded-lg border border-slate-700 hover:bg-slate-700 flex items-center gap-1.5 font-black text-xs">
+                        <Globe className="w-4 h-4 text-blue-300"/> {lang === 'si' ? 'සිංහල' : lang === 'ta' ? 'தமிழ்' : lang.toUpperCase()}
+                     </button>
+                 </div>
+
                  <Box className="w-16 h-16 text-[#3b82f6] mb-3" />
                  <h1 className="text-5xl font-black text-white tracking-tight mb-2">Clinnix<span className="text-[#3b82f6]">1.0</span></h1>
-                 <h2 className="text-xl text-[#94a3b8] font-bold mb-10">Area Riservata Team</h2>
+                 <h2 className="text-xl text-[#94a3b8] font-bold mb-10">{translations[lang].accessTitle}</h2>
                  
                  <div className="w-full max-w-sm">
                      <input 
@@ -493,7 +856,7 @@
                          maxLength={6} 
                          inputMode="numeric" 
                      />
-                     {pinError && <p className="text-red-400 font-bold mb-4">PIN errato, riprova.</p>}
+                     {pinError && <p className="text-red-400 font-bold mb-4">{translations[lang].pinError}</p>}
                      <button 
                          onClick={() => { 
                              if (pinInput === CORRECT_PIN) {
@@ -504,7 +867,7 @@
                              }
                          }} 
                          className="w-full bg-[#3b82f6] hover:bg-[#2563eb] text-white py-4 rounded-2xl font-black text-xl shadow-lg transition-transform active:scale-95 uppercase tracking-wide">
-                         Accedi al magazzino
+                         {translations[lang].accessButton}
                      </button>
                  </div>
                  
@@ -527,9 +890,11 @@
                     className="p-2 bg-slate-800 rounded-lg border border-slate-700 hover:bg-slate-700 flex items-center gap-1.5 font-black text-xs text-white"
                   >
                     <Printer className="w-4 h-4 text-blue-400" />
-                    <span className="hidden sm:inline">STAMPA</span>
+                    <span className="hidden sm:inline">{translations[lang].print}</span>
                   </a>
-                  <button onClick={() => setLang(lang === 'it' ? 'en' : 'it')} className="p-2 bg-slate-800 rounded-lg border border-slate-700 hover:bg-slate-700 flex items-center gap-1 font-black text-xs"><Globe className="w-4 h-4 text-blue-300"/> {lang.toUpperCase()}</button>
+                  <button onClick={toggleLang} className="p-2 bg-slate-800 rounded-lg border border-slate-700 hover:bg-slate-700 flex items-center gap-1 font-black text-xs">
+                     <Globe className="w-4 h-4 text-blue-300"/> {lang === 'si' ? 'සිංහල' : lang === 'ta' ? 'தமிழ்' : lang.toUpperCase()}
+                  </button>
                   <button onClick={() => setShowCalc(true)} className="p-2 bg-slate-800 rounded-lg border border-slate-700 hover:bg-slate-700"><Calculator className="w-5 h-5 text-emerald-400" /></button>
                   <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 bg-slate-800 rounded-lg border border-slate-700 hover:bg-slate-700">
                     {isDarkMode ? <Sun className="w-5 h-5 text-yellow-400" /> : <Moon className="w-5 h-5 text-blue-200" />}
@@ -595,27 +960,27 @@
                 {currentView === 'inventory' && (
                   <div className="space-y-4 w-full">
                     <div className={`mt-2 p-4 md:p-5 rounded-3xl border w-full overflow-hidden ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300 shadow-sm'}`}>
-                      <h3 className="font-extrabold mb-4 text-slate-800 dark:text-slate-200 uppercase tracking-wide flex items-center gap-2"><Plus className="w-6 h-6 text-emerald-500"/> {lang === 'it' ? 'Nuovo Rifornimento' : 'New Stock'}</h3>
+                      <h3 className="font-extrabold mb-4 text-slate-800 dark:text-slate-200 uppercase tracking-wide flex items-center gap-2"><Plus className="w-6 h-6 text-emerald-500"/> {translations[lang].newStock}</h3>
                       <div className="flex flex-col gap-4 w-full">
-                        <input type="text" placeholder={lang === 'it' ? 'Nuovo Articolo...' : 'New Item...'} value={newInvName} onChange={e => setNewInvName(e.target.value)} className={`w-full p-4 rounded-2xl border-2 font-black outline-none text-xl ${isDarkMode ? 'bg-slate-900 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`} />
+                        <input type="text" placeholder={translations[lang].newItem} value={newInvName} onChange={e => setNewInvName(e.target.value)} className={`w-full p-4 rounded-2xl border-2 font-black outline-none text-xl ${isDarkMode ? 'bg-slate-900 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`} />
                         
                         <div className="flex mobile-stack md:flex-row gap-4 md:gap-3 w-full pt-1">
                           <select value={newInvCategory} onChange={e => setNewInvCategory(e.target.value)} className={`flex-1 min-w-0 p-4 rounded-2xl border-2 font-bold outline-none text-lg ${isDarkMode ? 'bg-slate-900 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}>
-                            {categorie.map(c => <option key={c} value={c}>{c}</option>)}
+                            {categorie.map(c => <option key={c} value={c}>{translations[lang][c] || c}</option>)}
                           </select>
                           <div className="flex-1 min-w-0 relative mt-4 md:mt-0">
-                            <span className={`absolute -top-4 left-3 px-2 text-base md:text-lg font-black text-[#3b82f6] dark:text-blue-400 ${isDarkMode ? 'bg-[#0f172a]' : 'bg-white'}`}>Pz/Cart</span>
+                            <span className={`absolute -top-4 left-3 px-2 text-base md:text-lg font-black text-[#3b82f6] dark:text-blue-400 ${isDarkMode ? 'bg-[#0f172a]' : 'bg-white'}`}>{translations[lang].pzCart}</span>
                             <input type="number" value={newInvCartonSize} onChange={e => setNewInvCartonSize(e.target.value)} className={`w-full p-4 rounded-2xl border-2 text-center font-bold text-lg outline-none ${isDarkMode ? 'bg-slate-900 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`} />
                           </div>
                         </div>
                         
                         <div className="flex mobile-stack md:flex-row gap-4 md:gap-3 w-full pt-1">
                           <div className="flex-[1] min-w-0 relative mt-4 md:mt-0">
-                            <span className={`absolute -top-4 left-3 px-2 text-base md:text-lg font-black text-orange-600 dark:text-orange-400 ${isDarkMode ? 'bg-[#0f172a]' : 'bg-white'}`}>Allarme &lt; Pz</span>
+                            <span className={`absolute -top-4 left-3 px-2 text-base md:text-lg font-black text-orange-600 dark:text-orange-400 ${isDarkMode ? 'bg-[#0f172a]' : 'bg-white'}`}>{translations[lang].alertPz}</span>
                             <input type="number" value={newInvAlert} onChange={e => setNewInvAlert(e.target.value)} className={`w-full p-4 rounded-2xl border-2 text-center font-bold outline-none text-lg bg-orange-50 dark:bg-slate-800 border-orange-200 dark:border-orange-500/50 text-orange-700 dark:text-orange-400`} />
                           </div>
                           <div className="flex-[1] min-w-0 relative mt-4 md:mt-0">
-                            <span className={`absolute -top-4 left-3 px-2 text-base md:text-lg font-black text-emerald-600 dark:text-emerald-400 ${isDarkMode ? 'bg-[#0f172a]' : 'bg-white'}`}>Pezzi Totali</span>
+                            <span className={`absolute -top-4 left-3 px-2 text-base md:text-lg font-black text-emerald-600 dark:text-emerald-400 ${isDarkMode ? 'bg-[#0f172a]' : 'bg-white'}`}>{translations[lang].totalPz}</span>
                             <input type="number" value={newInvQty} onChange={e => setNewInvQty(e.target.value)} className={`w-full p-4 rounded-2xl border-2 text-center font-bold outline-none text-lg bg-emerald-50 dark:bg-slate-800 border-emerald-200 dark:border-emerald-500/50 text-emerald-700 dark:text-emerald-400`} />
                           </div>
                         </div>
@@ -629,7 +994,7 @@
                             <span className={`absolute -top-4 left-3 px-2 text-base md:text-lg font-black text-slate-500 dark:text-slate-400 ${isDarkMode ? 'bg-[#0f172a]' : 'bg-white'}`}>Scadenza (Opz.)</span>
                             <input type="text" value={newInvScadenza} onChange={e => setNewInvScadenza(e.target.value)} className={`w-full p-4 rounded-2xl border-2 font-bold outline-none text-base ${isDarkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'}`} />
                           </div>
-                          <button onClick={handleAddNewItem} className="w-full md:flex-[1] mt-2 md:mt-0 bg-emerald-600 hover:bg-emerald-700 text-white p-4 rounded-2xl flex items-center justify-center gap-2 font-black text-lg shadow-md transition-colors md:h-[60px]"><Save className="w-6 h-6" /> {lang === 'it' ? 'SALVA' : 'SAVE'}</button>
+                          <button onClick={handleAddNewItem} className="w-full md:flex-[1] mt-2 md:mt-0 bg-emerald-600 hover:bg-emerald-700 text-white p-4 rounded-2xl flex items-center justify-center gap-2 font-black text-lg shadow-md transition-colors md:h-[60px]"><Save className="w-6 h-6" /> {translations[lang].saveBtn}</button>
                         </div>
                       </div>
                     </div>
@@ -637,15 +1002,15 @@
                     <div className="flex flex-col sm:flex-row gap-3 w-full mt-4">
                         <div className="relative flex-[2] w-full min-w-0">
                             <Search className="absolute left-4 top-4 w-6 h-6 opacity-40 text-slate-900 dark:text-white" />
-                            <input type="text" placeholder={lang === 'it' ? 'Cerca un articolo...' : 'Search items...'} value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className={`w-full pl-12 p-4 rounded-3xl border-2 font-bold outline-none text-lg ${isDarkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 shadow-sm'}`} />
+                            <input type="text" placeholder={translations[lang].searchItem} value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className={`w-full pl-12 p-4 rounded-3xl border-2 font-bold outline-none text-lg ${isDarkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 shadow-sm'}`} />
                         </div>
-                        <button onClick={handleExportExcel} className="flex-1 min-w-[180px] bg-green-600 hover:bg-green-700 text-white px-4 py-4 rounded-3xl font-black text-lg flex items-center justify-center gap-2 shadow-sm transition-transform active:scale-95"><Download className="w-6 h-6" /> EXCEL</button>
+                        <button onClick={handleExportExcel} className="flex-1 min-w-[180px] bg-green-600 hover:bg-green-700 text-white px-4 py-4 rounded-3xl font-black text-lg flex items-center justify-center gap-2 shadow-sm transition-transform active:scale-95"><Download className="w-6 h-6" /> {translations[lang].excel}</button>
                     </div>
 
                     {/* BARRA DELLE CATEGORIE CON SCROLLBAR INTELLIGENTE */}
                     <div className="flex gap-3 py-3 w-full overflow-x-auto custom-scrollbar flex-nowrap items-center">
-                      <button onClick={() => setInventoryFilter('Tutti')} className={`px-6 py-3 rounded-full shrink-0 font-black border-2 whitespace-nowrap text-base shadow-sm transition-colors ${inventoryFilter === 'Tutti' ? 'bg-[#3b82f6] text-white border-[#3b82f6]' : (isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200')}`}>TUTTI</button>
-                      {categorie.map(c => <button key={c} onClick={() => setInventoryFilter(c)} className={`px-6 py-3 rounded-full shrink-0 font-black border-2 whitespace-nowrap text-base shadow-sm transition-colors ${inventoryFilter === c ? 'bg-[#3b82f6] text-white border-[#3b82f6]' : (isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200')}`}>{c.toUpperCase()}</button>)}
+                      <button onClick={() => setInventoryFilter('Tutti')} className={`px-6 py-3 rounded-full shrink-0 font-black border-2 whitespace-nowrap text-base shadow-sm transition-colors ${inventoryFilter === 'Tutti' ? 'bg-[#3b82f6] text-white border-[#3b82f6]' : (isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200')}`}>{translations[lang].all}</button>
+                      {categorie.map(c => <button key={c} onClick={() => setInventoryFilter(c)} className={`px-6 py-3 rounded-full shrink-0 font-black border-2 whitespace-nowrap text-base shadow-sm transition-colors ${inventoryFilter === c ? 'bg-[#3b82f6] text-white border-[#3b82f6]' : (isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200')}`}>{translations[lang][c] ? translations[lang][c].toUpperCase() : c.toUpperCase()}</button>)}
                     </div>
 
                     <div className="grid grid-cols-1 w-full gap-4 mt-2">
@@ -663,38 +1028,38 @@
                         const assignedLotsQty = validLots.reduce((sum, l) => sum + (parseInt(l.qty) || 0), 0);
                         const unassignedQty = Math.max(0, stock - assignedLotsQty);
 
-                        // Calcolo logico per numeri grandi
-                        let stockTextSize = 'text-5xl md:text-6xl tracking-tighter';
-                        if (stock.toString().length > 5) stockTextSize = 'text-3xl md:text-4xl tracking-tighter';
-                        else if (stock.toString().length > 3) stockTextSize = 'text-4xl md:text-5xl tracking-tighter';
+                        // Calcolo dinamico per cifre grandi (Previene "324...")
+                        let stockTextSize = 'text-5xl md:text-6xl tracking-tight font-black';
+                        if (stock.toString().length > 5) stockTextSize = 'text-2xl md:text-3xl tracking-tighter font-black';
+                        else if (stock.toString().length > 3) stockTextSize = 'text-3xl md:text-4xl tracking-tighter font-black';
 
                         if (editingItemId === item.id) return (
                           <div key={item.id} className={`p-5 rounded-3xl border-2 border-[#3b82f6] space-y-4 w-full overflow-hidden ${isDarkMode ? 'bg-slate-800' : 'bg-white shadow-lg'}`}>
-                            <div className="flex justify-between items-center w-full"><span className="font-bold text-xl truncate pr-2">Modifica Prodotto</span><X onClick={() => setEditingItemId(null)} className="cursor-pointer w-7 h-7 flex-shrink-0 text-slate-400 hover:text-red-500" /></div>
+                            <div className="flex justify-between items-center w-full"><span className="font-bold text-xl truncate pr-2">{translations[lang].deleteProduct}</span><X onClick={() => setEditingItemId(null)} className="cursor-pointer w-7 h-7 flex-shrink-0 text-slate-400 hover:text-red-500" /></div>
                             
                             <div className="relative mt-2 w-full">
-                                <span className={`absolute -top-3.5 left-2 px-2 text-base md:text-lg font-black text-[#3b82f6] dark:text-blue-400 ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>Nome Prodotto</span>
+                                <span className={`absolute -top-3.5 left-2 px-2 text-base md:text-lg font-black text-[#3b82f6] dark:text-blue-400 ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>{translations[lang].repName}</span>
                                 <input type="text" value={editFormData.name || ''} onChange={e => setEditFormData({...editFormData, name: e.target.value})} className={`w-full p-4 rounded-xl border-2 font-black text-2xl border-blue-300 bg-transparent ${isDarkMode ? 'text-white' : ''}`} />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4 w-full pt-1">
-                              <div className="relative mt-2"><span className={`absolute -top-3.5 left-2 px-2 text-base md:text-lg font-black text-[#3b82f6] dark:text-blue-400 ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>Totale Pz</span><input type="number" value={editFormData.totalStock} onChange={e => setEditFormData({...editFormData, totalStock: e.target.value})} className={`w-full p-4 rounded-xl border-2 text-center font-black text-3xl md:text-4xl border-blue-300 bg-transparent ${isDarkMode ? 'text-white' : ''}`} /></div>
-                              <div className="relative mt-2"><span className={`absolute -top-3.5 left-2 px-2 text-base md:text-lg font-black ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>Pz x Cart</span><input type="number" value={editFormData.cartonSize} onChange={e => setEditFormData({...editFormData, cartonSize: e.target.value})} className={`w-full p-4 rounded-xl border-2 text-center font-black text-3xl md:text-4xl bg-transparent ${isDarkMode ? 'text-white border-slate-600' : 'border-slate-300'}`} /></div>
+                              <div className="relative mt-2"><span className={`absolute -top-3.5 left-2 px-2 text-base md:text-lg font-black text-[#3b82f6] dark:text-blue-400 ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>{translations[lang].totalPz}</span><input type="number" value={editFormData.totalStock} onChange={e => setEditFormData({...editFormData, totalStock: e.target.value})} className={`w-full p-4 rounded-xl border-2 text-center font-black text-3xl md:text-4xl border-blue-300 bg-transparent ${isDarkMode ? 'text-white' : ''}`} /></div>
+                              <div className="relative mt-2"><span className={`absolute -top-3.5 left-2 px-2 text-base md:text-lg font-black ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>{translations[lang].pzCart}</span><input type="number" value={editFormData.cartonSize} onChange={e => setEditFormData({...editFormData, cartonSize: e.target.value})} className={`w-full p-4 rounded-xl border-2 text-center font-black text-3xl md:text-4xl bg-transparent ${isDarkMode ? 'text-white border-slate-600' : 'border-slate-300'}`} /></div>
                             </div>
                             <div className="grid grid-cols-2 gap-4 mt-3 w-full">
-                              <div className="relative mt-2"><span className={`absolute -top-3.5 left-2 px-2 text-base md:text-lg font-black text-orange-500 dark:text-orange-400 ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>Allarme Pz</span><input type="number" value={editFormData.alertThreshold} onChange={e => setEditFormData({...editFormData, alertThreshold: e.target.value})} className={`w-full p-4 rounded-xl border-2 text-center font-black text-2xl bg-transparent ${isDarkMode ? 'text-white border-slate-600' : 'border-slate-300'}`} /></div>
-                              <div className="relative mt-2"><span className={`absolute -top-3.5 left-2 px-2 text-base md:text-lg font-black text-emerald-600 dark:text-emerald-400 ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>Pz/Conf</span><input type="number" value={editFormData.piecesPerPack} onChange={e => setNewItems(items.map(i => i.id === editingItemId ? { ...i, piecesPerPack: parseInt(e.target.value) || 1 } : i))} className={`w-full p-4 rounded-xl border-2 text-center font-black text-2xl border-emerald-300 bg-transparent ${isDarkMode ? 'text-white' : ''}`} /></div>
+                              <div className="relative mt-2"><span className={`absolute -top-3.5 left-2 px-2 text-base md:text-lg font-black text-orange-500 dark:text-orange-400 ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>{translations[lang].alertPz}</span><input type="number" value={editFormData.alertThreshold} onChange={e => setEditFormData({...editFormData, alertThreshold: e.target.value})} className={`w-full p-4 rounded-xl border-2 text-center font-black text-2xl bg-transparent ${isDarkMode ? 'text-white border-slate-600' : 'border-slate-300'}`} /></div>
+                              <div className="relative mt-2"><span className={`absolute -top-3.5 left-2 px-2 text-base md:text-lg font-black text-emerald-600 dark:text-emerald-400 ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>{translations[lang].pzConf}</span><input type="number" value={editFormData.piecesPerPack} onChange={e => setEditFormData({...editFormData, piecesPerPack: e.target.value})} className={`w-full p-4 rounded-xl border-2 text-center font-black text-2xl border-emerald-300 bg-transparent ${isDarkMode ? 'text-white' : ''}`} /></div>
                             </div>
                             <div className="flex gap-2 items-center w-full mt-3 p-3 bg-slate-50 dark:bg-slate-700/50 rounded-2xl border-2 border-slate-200 dark:border-slate-600">
                                <input type="checkbox" checked={editFormData.excludeFromSamples || false} onChange={e => setEditFormData({...editFormData, excludeFromSamples: e.target.checked})} className="w-6 h-6 flex-shrink-0 accent-blue-600" id={`excl-${item.id}`} />
-                               <label htmlFor={`excl-${item.id}`} className="font-bold text-slate-700 dark:text-slate-300 text-sm md:text-lg">Nascondi da "Assegna Campioni"</label>
+                               <label htmlFor={`excl-${item.id}`} className="font-bold text-slate-700 dark:text-slate-300 text-sm md:text-lg">{translations[lang].hideSamples}</label>
                             </div>
                             <div className="flex gap-2 items-center w-full mt-2 p-3 bg-slate-50 dark:bg-slate-700/50 rounded-2xl border-2 border-slate-200 dark:border-slate-600">
                                <input type="checkbox" checked={editFormData.hasNoLots || false} onChange={e => setEditFormData({...editFormData, hasNoLots: e.target.checked})} className="w-6 h-6 flex-shrink-0 accent-emerald-600" id={`nolot-${item.id}`} />
-                               <label htmlFor={`nolot-${item.id}`} className="font-bold text-slate-700 dark:text-slate-300 text-sm md:text-lg">Non gestire i Lotti</label>
+                               <label htmlFor={`nolot-${item.id}`} className="font-bold text-slate-700 dark:text-slate-300 text-sm md:text-lg">{translations[lang].noLotsMode}</label>
                             </div>
                             <div className="flex gap-2 mt-4 w-full">
-                                <button onClick={saveEditedItem} className="flex-[3] bg-[#3b82f6] text-white py-4 rounded-2xl font-black text-xl flex items-center justify-center gap-2 shadow-md"><Save className="w-6 h-6"/> {lang === 'it' ? 'SALVA' : 'SAVE'}</button>
+                                <button onClick={saveEditedItem} className="flex-[3] bg-[#3b82f6] text-white py-4 rounded-2xl font-black text-xl flex items-center justify-center gap-2 shadow-md"><Save className="w-6 h-6"/> {translations[lang].saveBtn}</button>
                                 <button onClick={() => setItemToDelete(item)} className="flex-[1] bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 border border-red-200 dark:border-red-800 py-4 rounded-2xl font-black flex items-center justify-center shadow-md hover:bg-red-200 transition-colors"><Trash2 className="w-6 h-6"/></button>
                             </div>
                           </div>
@@ -719,16 +1084,18 @@
                                     </div>
 
                                     <div className="flex flex-wrap gap-2 items-center w-full mt-3">
-                                        <span className={`text-sm md:text-base font-black px-3 py-1.5 rounded-lg border uppercase tracking-wider ${isDarkMode ? 'bg-slate-700 border-slate-600' : 'bg-slate-100 border-slate-300'}`}>{item.category || 'Altro'}</span>
-                                        {isLow && <span className="text-red-700 font-black text-sm md:text-base tracking-wider bg-red-100 dark:bg-red-900/60 px-3 py-1.5 rounded-lg border border-red-300 flex items-center gap-1"><AlertTriangle className="w-4 h-4"/> SCORTA BASSA</span>}
-                                        {item.isToOrder && <span className="text-orange-700 font-black text-sm tracking-wider bg-orange-100 px-3 py-1.5 rounded-lg border border-orange-300 flex items-center gap-1"><ShoppingCart className="w-4 h-4"/> IN LISTA</span>}
-                                        {(parseInt(item.incoming) > 0) && <span className="text-emerald-700 font-black text-sm tracking-wider bg-emerald-100 dark:bg-emerald-900/60 px-3 py-1.5 rounded-lg border border-emerald-300 flex items-center gap-1"><Truck className="w-4 h-4"/> IN ARRIVO: {item.incoming} pz</span>}
+                                        <span className={`text-sm md:text-base font-black px-3 py-1.5 rounded-lg border uppercase tracking-wider ${isDarkMode ? 'bg-slate-700 border-slate-600' : 'bg-slate-100 border-slate-300'}`}>{translations[lang][item.category] || item.category || 'Altro'}</span>
+                                        {isLow && <span className="text-red-700 font-black text-sm md:text-base tracking-wider bg-red-100 dark:bg-red-900/60 px-3 py-1.5 rounded-lg border border-red-300 flex items-center gap-1"><AlertTriangle className="w-4 h-4"/> {translations[lang].scortaBassa}</span>}
+                                        {item.isToOrder && <span className="text-orange-700 font-black text-sm tracking-wider bg-orange-100 px-3 py-1.5 rounded-lg border border-orange-300 flex items-center gap-1"><ShoppingCart className="w-4 h-4"/> {translations[lang].inLista}</span>}
+                                        {(parseInt(item.incoming) > 0) && <span className="text-emerald-700 font-black text-sm tracking-wider bg-emerald-100 dark:bg-emerald-900/60 px-3 py-1.5 rounded-lg border border-emerald-300 flex items-center gap-1"><Truck className="w-4 h-4"/> {translations[lang].inArrivo}: {item.incoming} pz</span>}
                                     </div>
                                 </div>
 
                                 <div className="mt-4 md:mt-6 flex flex-col gap-2 w-full">
-                                    <p className={`text-2xl md:text-3xl font-black break-words ${isLow ? 'text-red-800 dark:text-red-200' : 'text-slate-700 dark:text-slate-300'}`}>📦 {calcCartons} cart. + {calcSingles} pz</p>
-                                    <p className="text-2xl md:text-3xl font-black text-emerald-600 flex items-center gap-2 break-words"><ShoppingBag className="w-7 h-7 flex-shrink-0" /> <span>{confVendibili} Conf.</span></p>
+                                    <p className={`text-2xl md:text-3xl font-black break-words ${isLow ? 'text-red-800 dark:text-red-200' : 'text-slate-700 dark:text-slate-300'}`}>
+                                      📦 {translations[lang].scatoleSciolte.replace('{singoli}', calcSingles).replace('boxes', calcCartons).replace('cart.', calcCartons)}
+                                    </p>
+                                    <p className="text-2xl md:text-3xl font-black text-emerald-600 flex items-center gap-2 break-words"><ShoppingBag className="w-7 h-7 flex-shrink-0" /> <span>{confVendibili} {translations[lang].confezioni}</span></p>
                                 </div>
                             </div>
 
@@ -752,7 +1119,7 @@
                                         ))}
                                         {unassignedQty > 0 && (
                                             <p className={`text-lg font-black text-slate-500 dark:text-slate-400 break-words flex justify-between items-center mt-1 pt-1 ${validLots.length > 0 ? 'border-t border-slate-100 dark:border-slate-700' : ''}`}>
-                                                <span className="truncate pr-2">S.L. <span className="opacity-70 text-sm font-bold text-slate-400">(Senza Lotto)</span></span>
+                                                <span className="truncate pr-2">{translations[lang].senzaLotto}</span>
                                                 <span className="shrink-0">{unassignedQty}pz</span>
                                             </p>
                                         )}
@@ -761,7 +1128,14 @@
 
                                 {!item.hasNoLots ? (
                                     <div className="flex gap-2 w-full mt-1">
-                                        <button onClick={() => { setEditingLotsId(item.id); setEditLotsData(Array.isArray(item.lots) ? item.lots : []); }} className="flex-[2] bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/30 border-2 border-emerald-300 text-emerald-700 font-black text-2xl py-4 rounded-2xl shadow-sm flex items-center justify-center gap-2"><Layers className="w-7 h-7"/> LOTTI</button>
+                                        {/* BILANCIATO E CENTRATO: Icona Layers posizionata alla perfezione */}
+                                        <button 
+                                          onClick={() => { setEditingLotsId(item.id); setEditLotsData(Array.isArray(item.lots) ? item.lots : []); }} 
+                                          className="flex-[2] bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/30 border-2 border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 py-3 rounded-2xl shadow-sm flex items-center justify-center gap-1.5 font-black uppercase text-xs sm:text-sm"
+                                        >
+                                          <Layers className="w-5 h-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                                          <span>{translations[lang].lotsTitle}</span>
+                                        </button>
                                         <button 
                                             onClick={async () => await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'items', item.id), { isToOrder: !item.isToOrder })} 
                                             className={`flex-1 flex items-center justify-center border-2 rounded-2xl font-black shadow-sm transition-colors ${item.isToOrder ? 'bg-orange-100 border-orange-300 text-orange-700' : 'bg-slate-100 border-slate-300 text-slate-600 hover:bg-orange-50'}`}>
@@ -773,7 +1147,7 @@
                                         <button 
                                             onClick={async () => await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'items', item.id), { isToOrder: !item.isToOrder })} 
                                             className={`w-full flex items-center justify-center gap-2 border-2 rounded-2xl font-black shadow-sm transition-colors py-4 text-xl ${item.isToOrder ? 'bg-orange-100 border-orange-300 text-orange-700' : 'bg-slate-100 border-slate-300 text-slate-600 hover:bg-orange-50'}`}>
-                                            <ShoppingCart className="w-6 h-6"/> {item.isToOrder ? 'IN LISTA ORDINI' : 'DA ORDINARE'}
+                                            <ShoppingCart className="w-6 h-6"/> {item.isToOrder ? translations[lang].inLista : translations[lang].toOrder}
                                         </button>
                                     </div>
                                 )}
@@ -787,13 +1161,13 @@
 
                 {/* --- ORDINI --- */}
                 {currentView === 'ordini' && (
-                  <div className="space-y-6 w-full">
+                  <div className="space-y-6 w-full animate-fade-in">
                      <div className={`p-5 rounded-3xl border-2 flex mobile-stack justify-between items-center gap-4 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
                        <div>
-                         <h2 className="text-2xl font-black mb-1 text-orange-600 flex items-center gap-2"><ShoppingCart className="w-7 h-7"/> {lang === 'it' ? 'Lista Ordini' : 'Order List'}</h2>
-                         <p className="text-slate-500 font-bold text-sm">Prodotti contrassegnati manualmente.</p>
+                         <h2 className="text-2xl font-black mb-1 text-orange-600 flex items-center gap-2"><ShoppingCart className="w-7 h-7"/> {translations[lang].orderList}</h2>
+                         <p className="text-slate-500 font-bold text-sm">{translations[lang].orderDesc}</p>
                        </div>
-                       <button onClick={handleWhatsAppReminder} className="bg-green-500 hover:bg-green-600 text-white px-6 py-4 rounded-2xl font-black text-lg flex items-center justify-center gap-2 shadow-md w-full md:w-auto"><MessageCircle className="w-6 h-6"/> ORDINA WHATSAPP</button>
+                       <button onClick={handleWhatsAppReminder} className="bg-green-500 hover:bg-green-600 text-white px-6 py-4 rounded-2xl font-black text-lg flex items-center justify-center gap-2 shadow-md w-full md:w-auto"><MessageCircle className="w-6 h-6"/> {translations[lang].whatsAppOrderBtn}</button>
                      </div>
 
                      <div className="space-y-3">
@@ -803,64 +1177,93 @@
                            if (editingItemId === item.id) return (
                                <div key={item.id} className="p-5 rounded-3xl border-2 border-[#3b82f6] space-y-3 bg-white dark:bg-slate-800 shadow-sm">
                                    <div className="flex justify-between items-center">
-                                       <span className="font-bold text-xl">Registra Ordine: {item.name || 'Prodotto'}</span>
+                                       <span className="font-bold text-xl">{translations[lang].registraOrdine}: {item.name || 'Prodotto'}</span>
                                        <X onClick={() => setEditingItemId(null)} className="cursor-pointer w-7 h-7 hover:text-red-500" />
                                    </div>
                                    <div className="grid grid-cols-1 gap-2 mt-2">
-                                       <div className="relative mt-2"><span className={`absolute -top-3 left-3 px-2 text-sm font-black text-[#3b82f6] dark:text-blue-400 ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>Pezzi in Arrivo</span><input type="number" value={editFormData.incoming} onChange={e => setEditFormData({...editFormData, incoming: e.target.value})} className="w-full p-4 rounded-xl border-2 text-center font-black text-2xl bg-transparent border-slate-200 dark:border-slate-600 outline-none" /></div>
+                                       <div className="relative mt-2"><span className={`absolute -top-3 left-3 px-2 text-sm font-black text-[#3b82f6] dark:text-blue-400 ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>{translations[lang].pezziInArrivo}</span><input type="number" value={editFormData.incoming} onChange={e => setEditFormData({...editFormData, incoming: e.target.value})} className="w-full p-4 rounded-xl border-2 text-center font-black text-2xl bg-transparent border-slate-200 dark:border-slate-600 outline-none" /></div>
                                    </div>
                                    <div className="grid grid-cols-2 gap-3 mt-3">
-                                       <div className="relative mt-2"><span className={`absolute -top-3 left-3 px-2 text-sm font-black text-[#3b82f6] dark:text-blue-400 ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>Data Ordine</span><input type="date" value={editFormData.orderDate || ''} onChange={e => setEditFormData({...editFormData, orderDate: e.target.value})} className="w-full p-4 rounded-xl border-2 text-center font-bold bg-transparent border-slate-200 dark:border-slate-600 outline-none" /></div>
-                                       <div className="relative mt-2"><span className={`absolute -top-3 left-3 px-2 text-sm font-black text-[#3b82f6] dark:text-blue-400 ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>Arrivo Previsto</span><input type="date" value={editFormData.incomingDate || ''} onChange={e => setEditFormData({...editFormData, incomingDate: e.target.value})} className="w-full p-4 rounded-xl border-2 text-center font-bold bg-transparent border-slate-200 dark:border-slate-600 outline-none" /></div>
+                                       <div className="relative mt-2"><span className={`absolute -top-3 left-3 px-2 text-sm font-black text-[#3b82f6] dark:text-blue-400 ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>{translations[lang].dataOrdine}</span><input type="date" value={editFormData.orderDate || ''} onChange={e => setEditFormData({...editFormData, orderDate: e.target.value})} className="w-full p-4 rounded-xl border-2 text-center font-bold bg-transparent border-slate-200 dark:border-slate-600 outline-none" /></div>
+                                       <div className="relative mt-2"><span className={`absolute -top-3 left-3 px-2 text-sm font-black text-[#3b82f6] dark:text-blue-400 ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>{translations[lang].arrivoPrevisto}</span><input type="date" value={editFormData.incomingDate || ''} onChange={e => setEditFormData({...editFormData, incomingDate: e.target.value})} className="w-full p-4 rounded-xl border-2 text-center font-bold bg-transparent border-slate-200 dark:border-slate-600 outline-none" /></div>
                                    </div>
                                    <div className={`flex flex-col gap-2 mt-3 mb-1 p-3 rounded-xl border ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-slate-100 border-slate-200'}`}>
                                         <label className="flex items-center gap-2 text-[13px] md:text-lg font-bold cursor-pointer text-slate-700 dark:text-slate-300">
                                             <input type="checkbox" checked={editFormData.excludeFromSamples || false} onChange={e => setEditFormData({...editFormData, excludeFromSamples: e.target.checked})} className="w-6 h-6 flex-shrink-0 accent-blue-600" />
-                                            Nascondi dalla lista "Assegna Campioni"
+                                            {translations[lang].hideSamples}
                                         </label>
                                         <label className="flex items-center gap-2 text-[13px] md:text-lg font-bold cursor-pointer text-slate-700 dark:text-slate-300">
                                             <input type="checkbox" checked={editFormData.hasNoLots || false} onChange={e => setEditFormData({...editFormData, hasNoLots: e.target.checked})} className="w-6 h-6 flex-shrink-0 accent-emerald-600" />
-                                            Non gestire i Lotti per questo prodotto
+                                            {translations[lang].noLotsMode}
                                         </label>
                                    </div>
-                                   <button onClick={saveEditedItem} className="w-full bg-[#3b82f6] hover:bg-blue-700 text-white font-black py-4 rounded-xl text-lg mt-3 shadow-md flex items-center justify-center gap-2"><Save className="w-6 h-6"/> SALVA ORDINE</button>
+                                   {/* RIPOSIZIONATI E POTENZIATI I TASTI DI SALVATAGGIO CON IL NUOVO TASTO RESET ANNULLA REGISTRAZIONE */}
+                                   <div className="flex gap-2 mt-3">
+                                      <button onClick={saveEditedItem} className="flex-[2] bg-[#3b82f6] hover:bg-blue-700 text-white font-black py-4 rounded-xl text-lg shadow-md flex items-center justify-center gap-2">
+                                        <Save className="w-6 h-6"/> {translations[lang].saveBtn}
+                                      </button>
+                                      {isOrdered && (
+                                        <button 
+                                          onClick={async () => {
+                                            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'items', item.id), {
+                                              incoming: 0,
+                                              incomingDate: "",
+                                              orderDate: ""
+                                            });
+                                            setEditingItemId(null);
+                                            addLog(`Annullato stato ordine per: ${item.name}`, 'edit');
+                                          }} 
+                                          className="flex-1 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 text-red-600 dark:text-red-400 py-4 rounded-xl font-black text-xs uppercase border border-red-200 dark:border-red-800"
+                                          title="Annulla solo la registrazione lasciando il prodotto in lista"
+                                        >
+                                          Annulla Reg.
+                                        </button>
+                                      )}
+                                   </div>
                                </div>
                            );
 
                            return (
-                             <div key={item.id} className={`p-4 rounded-3xl border-2 shadow-sm flex flex-col sm:flex-row sm:items-start justify-between gap-4 ${isOrdered ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'bg-white dark:bg-slate-800'}`}>
+                             /* SFONDI PASTELLO MORBIDI: Arancio chiaro per "da ordinare", Verde chiaro per "ordinati/in arrivo" */
+                             <div key={item.id} className={`p-4 rounded-3xl border-2 shadow-sm flex flex-col sm:flex-row sm:items-start justify-between gap-4 transition-colors ${
+                               isOrdered 
+                                 ? 'border-emerald-200 bg-emerald-50/70 dark:border-emerald-900/40 dark:bg-emerald-950/20 text-slate-900 dark:text-white' 
+                                 : 'border-orange-200 bg-orange-50/70 dark:border-orange-900/40 dark:bg-orange-950/20 text-slate-900 dark:text-white'
+                             }`}>
                                 <div className="flex-1 min-w-0">
                                     <h4 className="font-black text-2xl leading-tight truncate" title={item.name}>{item.name || 'Prodotto'}</h4>
-                                    <p className="font-bold text-red-500 mt-1">Giacenza: {item.stock} pz</p>
+                                    <p className="font-bold text-red-500 mt-1">{translations[lang].totalPz}: {item.stock} pz</p>
                                     
                                     {isOrdered && (
-                                       <div className="mt-3 bg-emerald-100 dark:bg-emerald-800 text-emerald-900 dark:text-emerald-50 px-4 py-3 rounded-2xl border border-emerald-400 shadow-sm">
+                                       <div className="mt-3 bg-emerald-100 dark:bg-emerald-800/40 text-emerald-900 dark:text-emerald-50 px-4 py-3 rounded-2xl border border-emerald-400 shadow-sm">
                                            <div className="flex items-center gap-2 mb-2 border-b border-emerald-300 dark:border-emerald-600 pb-2">
                                                <CheckCircle className="w-5 h-5" />
-                                               <span className="font-black text-sm uppercase">{item.incoming > 0 ? `IN ARRIVO: ${item.incoming} pz` : 'ORDINE REGISTRATO'}</span>
+                                               <span className="font-black text-sm uppercase">{item.incoming > 0 ? `${translations[lang].inArrivo}: ${item.incoming} pz` : 'ORDINE REGISTRATO'}</span>
                                            </div>
                                            <div className="flex flex-col text-sm font-bold gap-1">
-                                               {item.orderDate && <p><span className="opacity-70">Ordinato il:</span> {item.orderDate.split('-').reverse().join('/')}</p>}
-                                               {item.incomingDate && <p><span className="opacity-70">Arrivo previsto:</span> {item.incomingDate.split('-').reverse().join('/')}</p>}
+                                               {item.orderDate && <p><span className="opacity-70">{translations[lang].dataOrdine}:</span> {item.orderDate.split('-').reverse().join('/')}</p>}
+                                               {item.incomingDate && <p><span className="opacity-70">{translations[lang].arrivoPrevisto}:</span> {item.incomingDate.split('-').reverse().join('/')}</p>}
                                            </div>
                                        </div>
                                     )}
                                     
                                     <button onClick={() => { setEditingItemId(item.id); setEditFormData({ name: item.name, cartonSize: parseInt(item.cartonSize) || 10, piecesPerPack: parseInt(item.piecesPerPack) || 1, totalStock: parseInt(item.stock) || 0, alertThreshold: item.alertThreshold, incoming: item.incoming || 0, incomingDate: item.incomingDate || '', orderDate: item.orderDate || new Date().toISOString().split('T')[0], isToOrder: true, excludeFromSamples: item.excludeFromSamples || false, hasNoLots: item.hasNoLots || false }); }} className={`mt-4 font-black text-sm flex items-center justify-center gap-2 px-5 py-3 rounded-xl border shadow-sm transition-colors w-full sm:w-auto ${isOrdered ? 'bg-emerald-200 border-emerald-400 text-emerald-800 dark:bg-emerald-700 dark:border-emerald-600 dark:text-white hover:bg-emerald-300' : 'bg-slate-100 border-slate-300 text-slate-700 dark:bg-slate-700 dark:text-white hover:bg-slate-200'}`}>
-                                        <Pencil className="w-5 h-5" /> {isOrdered ? 'MODIFICA ORDINE' : 'REGISTRA ORDINE'}
+                                        <Pencil className="w-5 h-5" /> {isOrdered ? translations[lang].modificaOrdine : translations[lang].registraOrdine}
                                     </button>
                                 </div>
-                                <button onClick={() => updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'items', item.id), { isToOrder: false })} className="p-4 text-red-500 bg-red-50 dark:bg-red-900/20 rounded-2xl border border-red-100 dark:border-red-900/50 hover:bg-red-100 shrink-0 self-end sm:self-start"><Trash2 className="w-6 h-6"/></button>
+                                {/* PRESTANTE CANCELLAZIONE: Pulisce integralmente anche i dati inseriti per errore */}
+                                <button onClick={() => handleCancelOrder(item)} className="p-4 text-red-500 bg-red-100/50 dark:bg-red-950/40 rounded-2xl border border-red-100 dark:border-red-900/50 hover:bg-red-200 shrink-0 self-end sm:self-start"><Trash2 className="w-6 h-6"/></button>
                              </div>
                            );
                         })}
-                        {items.filter(i => i.isToOrder).length === 0 && <p className="text-center opacity-40 font-bold py-5">Nessun prodotto in lista ordini.</p>}
+                        {items.filter(i => i.isToOrder).length === 0 && <p className="text-center opacity-40 font-bold py-5">{translations[lang].noOrders}</p>}
                      </div>
 
+                     {/* REGISTRO RIFORNIMENTI CON ELIMINAZIONE SINGOLA DEGLI ENTRATE LOG */}
                      <div className={`p-5 rounded-3xl border-2 mt-8 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
                         <div className="flex items-center gap-2 mb-4 border-b-2 border-slate-100 dark:border-slate-700 pb-3">
                             <History className="w-7 h-7 text-emerald-500" />
-                            <h2 className="text-2xl font-black text-emerald-600 uppercase">{lang === 'it' ? 'Registro Rifornimenti' : 'Supply Register'}</h2>
+                            <h2 className="text-2xl font-black text-emerald-600 uppercase">{translations[lang].supplyRegister}</h2>
                         </div>
                         <div className="space-y-3">
                             {logs.filter(l => l.type === 'restock').slice(0, 15).map(log => (
@@ -869,10 +1272,20 @@
                                         <p className="font-black text-lg text-slate-800 dark:text-slate-100 break-words leading-tight">{log.text}</p>
                                         <p className="text-sm font-bold text-slate-400 mt-1 uppercase tracking-wider">{new Date(log.date).toLocaleString('it-IT')}</p>
                                     </div>
-                                    <div className="p-2 bg-emerald-100 text-emerald-700 rounded-xl ml-3 shrink-0"><CheckCircle className="w-6 h-6"/></div>
+                                    <div className="flex items-center gap-3 ml-3 shrink-0">
+                                        <div className="p-2 bg-emerald-100 text-emerald-700 rounded-xl"><CheckCircle className="w-6 h-6"/></div>
+                                        {/* TASTO PER LA CANCELLAZIONE INDIVIDUALE DI UN LOG DI ENTRATA */}
+                                        <button 
+                                            onClick={async () => await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'logs', log.id))} 
+                                            className="p-2 text-red-500 hover:bg-red-100 dark:hover:bg-red-950/50 rounded-xl transition-colors shrink-0"
+                                            title="Rimuovi questo rifornimento"
+                                        >
+                                            <Trash2 className="w-6 h-6" />
+                                        </button>
+                                    </div>
                                 </div>
                             ))}
-                            {logs.filter(l => l.type === 'restock').length === 0 && <p className="text-center opacity-40 font-bold py-5">Nessun rifornimento registrato.</p>}
+                            {logs.filter(l => l.type === 'restock').length === 0 && <p className="text-center opacity-40 font-bold py-5">{translations[lang].noSupply}</p>}
                         </div>
                      </div>
                   </div>
@@ -883,10 +1296,10 @@
                   <div className="space-y-4 w-full animate-fade-in">
                      <div className={`p-5 rounded-3xl border-2 flex justify-between items-center gap-4 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
                         <div className="flex-1">
-                            <h2 className="text-2xl font-black text-blue-600">Storico Movimenti</h2>
-                            <p className="text-slate-500 font-bold text-sm">Tutte le attività recenti del magazzino.</p>
+                            <h2 className="text-2xl font-black text-blue-600">{translations[lang].movementHistory}</h2>
+                            <p className="text-slate-500 font-bold text-sm">{translations[lang].movementDesc}</p>
                         </div>
-                        <button onClick={() => setShowClearLogsModal(true)} className="bg-red-50 text-red-600 px-4 py-3 rounded-2xl font-black text-sm border border-red-200 shadow-sm flex items-center gap-2"><Trash2 className="w-5 h-5"/> PULISCI TUTTO</button>
+                        <button onClick={() => setShowClearLogsModal(true)} className="bg-red-50 text-red-600 px-4 py-3 rounded-2xl font-black text-sm border border-red-200 shadow-sm flex items-center gap-2"><Trash2 className="w-5 h-5"/> {translations[lang].clearAll}</button>
                      </div>
                      <div className="space-y-3">
                         {logs.map(log => (
@@ -909,13 +1322,13 @@
                 {currentView === 'dashboard' && (
                   <div className="space-y-4 w-full">
                      <div className={`p-5 rounded-3xl border-2 flex flex-col gap-4 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
-                       <h2 className="text-2xl font-black uppercase text-[#3b82f6]">{lang === 'it' ? 'Uscite Campioni' : 'Sample Outflows'}</h2>
+                       <h2 className="text-2xl font-black uppercase text-[#3b82f6]">{translations[lang].sampleOutflows}</h2>
                        
                        {/* TASTI SUPERIORI CON SCROLLBAR INTELLIGENTE */}
                        <div className="flex gap-3 w-full overflow-x-auto custom-scrollbar flex-nowrap pb-3">
-                           <button onClick={() => setCurrentView('informatori')} className="shrink-0 flex-1 min-w-[130px] bg-slate-200 dark:bg-slate-700 p-4 rounded-2xl font-black flex items-center justify-center gap-2 shadow-sm"><Users className="w-5 h-5" /> RUBRICA</button>
-                           <button onClick={() => setCurrentView('congressi')} className="shrink-0 flex-1 min-w-[130px] bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 p-4 rounded-2xl font-black flex items-center justify-center gap-2 shadow-sm"><MapPin className="w-5 h-5" /> CONGRESSI</button>
-                           <button onClick={() => setCurrentView('new')} className="shrink-0 flex-1 min-w-[130px] bg-[#3b82f6] text-white p-4 rounded-2xl font-black flex items-center justify-center gap-2 shadow-md"><Plus className="w-5 h-5" /> NUOVA</button>
+                           <button onClick={() => setCurrentView('informatori')} className="shrink-0 flex-1 min-w-[130px] bg-slate-200 dark:bg-slate-700 p-4 rounded-2xl font-black flex items-center justify-center gap-2 shadow-sm"><Users className="w-5 h-5" /> {translations[lang].directory}</button>
+                           <button onClick={() => setCurrentView('congressi')} className="shrink-0 flex-1 min-w-[130px] bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 p-4 rounded-2xl font-black flex items-center justify-center gap-2 shadow-sm"><MapPin className="w-5 h-5" /> {translations[lang].congresses}</button>
+                           <button onClick={() => setCurrentView('new')} className="shrink-0 flex-1 min-w-[130px] bg-[#3b82f6] text-white p-4 rounded-2xl font-black flex items-center justify-center gap-2 shadow-md"><Plus className="w-5 h-5" /> {translations[lang].newButton}</button>
                        </div>
                      </div>
 
@@ -931,20 +1344,20 @@
                          <div className="flex gap-3">
                             <button onClick={() => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shipments', s.id))} className="p-4 text-red-600 bg-red-50 dark:bg-red-900/20 rounded-2xl shrink-0"><Trash2 className="w-6 h-6" /></button>
                             <button onClick={() => { setActiveEntityName(s.destination); setActiveEntityRegion(s.region); setBackView('dashboard'); setCurrentView('repDetails'); }} className={`flex-1 md:w-40 flex items-center justify-center gap-2 px-6 py-4 rounded-2xl font-black border text-center shadow-sm transition-colors bg-[#3b82f6] text-white border-[#3b82f6]`}>
-                                DETTAGLI
+                                {translations[lang].detailsBtn}
                             </button>
                          </div>
                        </div>
                      ))}
-                     {shipments.length === 0 && <p className="text-center opacity-50 font-bold p-10 text-lg w-full">Nessuna uscita registrata.</p>}
+                     {shipments.length === 0 && <p className="text-center opacity-50 font-bold p-10 text-lg w-full">{translations[lang].noShipments}</p>}
                   </div>
                 )}
 
                 {/* --- NUOVA ASSEGNAZIONE --- */}
                 {currentView === 'new' && (
                   <div className={`p-5 rounded-3xl border-2 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
-                    <button onClick={() => setCurrentView('dashboard')} className="flex items-center gap-1.5 mb-5 font-black text-sm uppercase opacity-70"><ArrowLeft className="w-5 h-5"/> Indietro</button>
-                    <h2 className="text-2xl font-black mb-5">{lang === 'it' ? 'Nuova Assegnazione' : 'New Assignment'}</h2>
+                    <button onClick={() => setCurrentView('dashboard')} className="flex items-center gap-1.5 mb-5 font-black text-sm uppercase opacity-70"><ArrowLeft className="w-5 h-5"/> {translations[lang].back}</button>
+                    <h2 className="text-2xl font-black mb-5">{translations[lang].newAssignment}</h2>
                     
                     <div className="flex bg-slate-200 dark:bg-slate-700 p-1.5 rounded-2xl mb-5 shadow-inner">
                         <button onClick={()=>{setDestType('informatore'); setNewDest(''); setNewRegion('');}} className={`flex-1 py-3 rounded-xl font-black text-base transition-all ${destType==='informatore' ? 'bg-white dark:bg-slate-800 shadow-sm text-[#3b82f6]' : 'text-slate-500'}`}>INFORMATORE</button>
@@ -958,17 +1371,17 @@
                                 const list = destType === 'informatore' ? informatori : congressi;
                                 const info = list.find(i => (i.name||'').toLowerCase() === (val||'').toLowerCase()); 
                                 if(info && info.region) setNewRegion(info.region); 
-                            }} placeholder={destType === 'informatore' ? 'Nome Informatore' : 'Nome Congresso'} className={`w-full p-4 rounded-2xl border-2 text-xl font-bold shadow-sm bg-transparent ${destType === 'congresso' ? 'border-emerald-400' : 'border-blue-400'}`} />
+                            }} placeholder={destType === 'informatore' ? translations[lang].repName : translations[lang].congName} className={`w-full p-4 rounded-2xl border-2 text-xl font-bold shadow-sm bg-transparent ${destType === 'congresso' ? 'border-emerald-400' : 'border-blue-400'}`} />
                             <datalist id="dest-list">{(destType === 'informatore' ? informatori : congressi).map(i => <option key={i.id} value={i.name} />)}</datalist>
                         </div>
                         <div className="flex-1 relative w-full">
-                            <input type="text" value={newRegion} onChange={e => setNewRegion(e.target.value)} placeholder="Regione/Luogo" className="w-full p-4 rounded-2xl border-2 text-xl font-bold bg-transparent shadow-sm" />
+                            <input type="text" value={newRegion} onChange={e => setNewRegion(e.target.value)} placeholder={translations[lang].placeRegion} className="w-full p-4 rounded-2xl border-2 text-xl font-bold bg-transparent shadow-sm" />
                         </div>
                     </div>
 
                     <div className="mb-6">
                         <div className="flex justify-between items-center mb-3">
-                            <h3 className="font-black text-sm uppercase tracking-widest text-slate-500">Seleziona Prodotti</h3>
+                            <h3 className="font-black text-sm uppercase tracking-widest text-slate-500">{translations[lang].selectProducts}</h3>
                         </div>
                         <div className="max-h-[35vh] overflow-y-auto border-2 rounded-3xl p-2 custom-scrollbar bg-slate-50 dark:bg-slate-900 shadow-inner">
                             {items.filter(i => !i.excludeFromSamples).map(item => (
@@ -988,18 +1401,18 @@
                     </div>
 
                     <div className="mb-6 pt-4 border-t-2 border-dashed border-slate-200 dark:border-slate-700">
-                        <h3 className="font-black text-sm opacity-50 mb-3 uppercase">Aggiungi altro manualmente</h3>
+                        <h3 className="font-black text-sm opacity-50 mb-3 uppercase">{translations[lang].addManual}</h3>
                         {extraItems.map((item, idx) => (
                             <div key={item.id} className="flex gap-2 mb-2">
                                 <input type="text" placeholder="Prodotto fuori lista..." value={item.name} onChange={e => { const d = [...extraItems]; d[idx].name = e.target.value; setExtraItems(d); }} className="flex-1 p-3 rounded-xl border-2 font-bold text-lg bg-white dark:bg-slate-800 outline-none" />
                                 <input type="number" placeholder="Qta" value={item.qty} onChange={e => { const d = [...extraItems]; d[idx].qty = e.target.value; setExtraItems(d); }} className="w-20 p-3 rounded-xl border-2 font-black text-xl text-center bg-white dark:bg-slate-800 outline-none" />
-                                <button onClick={() => setExtraItems(extraItems.filter(s => s.id !== item.id))} className="text-red-500 p-2"><Trash2 className="w-6 h-6"/></button>
+                                <button onClick={() => setExtraItems(extraItems.filter(s => s.id !== item.id))} className="text-red-500 p-2"><Trash2 className="w-5 h-5"/></button>
                             </div>
                         ))}
-                        <button onClick={() => setExtraItems([...extraItems, { id: Date.now().toString(), name: '', qty: '' }])} className="text-[#3b82f6] font-black text-base mt-2 flex items-center gap-1"><Plus className="w-6 h-6"/> Aggiungi riga</button>
+                        <button onClick={() => setExtraItems([...extraItems, { id: Date.now().toString(), name: '', qty: '' }])} className="text-[#3b82f6] font-black text-base mt-2 flex items-center gap-1"><Plus className="w-6 h-6"/> {translations[lang].addRow}</button>
                     </div>
 
-                    <button onClick={handleAssignSamples} className={`w-full text-white py-5 rounded-2xl font-black text-xl shadow-md flex items-center justify-center gap-2 ${destType === 'congresso' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-[#3b82f6] hover:bg-blue-700'}`}><Save className="w-6 h-6" /> REGISTRA ASSEGNAZIONE</button>
+                    <button onClick={handleAssignSamples} className={`w-full text-white py-5 rounded-2xl font-black text-xl shadow-md flex items-center justify-center gap-2 ${destType === 'congresso' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-[#3b82f6] hover:bg-blue-700'}`}><Save className="w-6 h-6" /> {translations[lang].saveAssignment}</button>
                   </div>
                 )}
 
@@ -1007,9 +1420,9 @@
                 {currentView === 'informatori' && (
                   <div className="space-y-4 w-full">
                      <div className={`p-4 sm:p-5 rounded-3xl border-2 w-full shadow-sm ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
-                       <button onClick={() => setCurrentView('dashboard')} className="flex items-center gap-1.5 mb-5 opacity-70 font-bold text-sm uppercase"><ArrowLeft className="w-5 h-5" /> Indietro</button>
-                       <h2 className="text-3xl font-black mb-2 text-slate-900 dark:text-white">Rubrica Informatori</h2>
-                       <div className="relative mb-5 mt-4 w-full min-w-0"><Search className="absolute left-4 top-4 w-6 h-6 opacity-40 text-slate-900 dark:text-white" /><input type="text" placeholder="Cerca nome..." value={searchInfoQuery} onChange={e => setSearchInfoQuery(e.target.value)} className="w-full pl-12 p-4 rounded-2xl border-2 font-bold outline-none text-xl bg-inherit" /></div>
+                       <button onClick={() => setCurrentView('dashboard')} className="flex items-center gap-1.5 mb-5 opacity-70 font-bold text-sm uppercase"><ArrowLeft className="w-5 h-5" /> {translations[lang].back}</button>
+                       <h2 className="text-3xl font-black mb-2 text-slate-900 dark:text-white">{translations[lang].repDirectory}</h2>
+                       <div className="relative mb-5 mt-4 w-full min-w-0"><Search className="absolute left-4 top-4 w-6 h-6 opacity-40 text-slate-900 dark:text-white" /><input type="text" placeholder={translations[lang].searchName} value={searchInfoQuery} onChange={e => setSearchInfoQuery(e.target.value)} className="w-full pl-12 p-4 rounded-2xl border-2 font-bold outline-none text-xl bg-inherit" /></div>
                        
                        <div className="flex flex-col gap-4 w-full min-w-0">
                          {informatori.filter(i => ((i.name||'').toLowerCase().includes(searchInfoQuery.toLowerCase()) || (i.region||'').toLowerCase().includes(searchInfoQuery.toLowerCase()))).map(info => {
@@ -1019,8 +1432,8 @@
                                       <input type="text" value={editInfoName} onChange={e=>setEditInfoName(e.target.value)} className="w-full p-4 rounded-xl border-2 font-bold text-xl outline-none bg-inherit" />
                                       <input type="text" value={editInfoRegion} onChange={e=>setEditInfoRegion(e.target.value)} placeholder="Regione" className="w-full p-4 rounded-xl border-2 font-bold text-xl outline-none bg-inherit" />
                                       <div className="flex gap-2 mt-2 w-full">
-                                          <button onClick={async () => { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'informatori', info.id), { name: editInfoName, region: editInfoRegion }); setEditingInfoId(null); }} className="flex-1 bg-blue-600 text-white p-4 rounded-xl font-black text-xl flex justify-center items-center gap-2"><Save className="w-6 h-6"/> SALVA</button>
-                                          <button onClick={()=>setEditingInfoId(null)} className="p-4 bg-slate-300 dark:bg-slate-700 rounded-xl font-black text-xl">ANNULLA</button>
+                                          <button onClick={async () => { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'informatori', info.id), { name: editInfoName, region: editInfoRegion }); setEditingInfoId(null); }} className="flex-1 bg-blue-600 text-white p-4 rounded-xl font-black text-xl flex justify-center items-center gap-2"><Save className="w-6 h-6"/> {translations[lang].saveBtn}</button>
+                                          <button onClick={()=>setEditingInfoId(null)} className="p-4 bg-slate-300 dark:bg-slate-700 rounded-xl font-black text-xl">{translations[lang].cancelBtn}</button>
                                       </div>
                                   </div>
                                </div>
@@ -1037,7 +1450,7 @@
                                <div className="flex gap-2 w-full md:w-auto">
                                    <button onClick={() => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'informatori', info.id))} className="p-4 shrink-0 text-red-600 border border-red-200 bg-red-50 dark:bg-red-900/20 rounded-xl"><Trash2 className="w-7 h-7" /></button>
                                    <button onClick={() => { setActiveEntityName(info.name); setActiveEntityRegion(info.region); setBackView('informatori'); setCurrentView('repDetails'); }} className="px-6 py-4 rounded-xl font-black flex items-center justify-center gap-2 shadow-sm border transition-colors flex-1 md:flex-none bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800 text-lg">
-                                       STORICO
+                                       {translations[lang].historyBtn}
                                    </button>
                                </div>
                              </div>
@@ -1052,9 +1465,9 @@
                 {currentView === 'congressi' && (
                   <div className="space-y-4 w-full">
                      <div className={`p-4 sm:p-5 rounded-3xl border-2 w-full shadow-sm ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
-                       <button onClick={() => setCurrentView('dashboard')} className="flex items-center gap-1.5 mb-5 opacity-70 font-bold text-sm uppercase"><ArrowLeft className="w-5 h-5" /> Indietro</button>
-                       <h2 className="text-3xl font-black mb-2 text-emerald-600 dark:text-emerald-500">Archivio Congressi</h2>
-                       <div className="relative mb-5 mt-4 w-full min-w-0"><Search className="absolute left-4 top-4 w-6 h-6 opacity-40 text-slate-900 dark:text-white" /><input type="text" placeholder="Cerca congresso..." value={searchInfoQuery} onChange={e => setSearchInfoQuery(e.target.value)} className="w-full pl-12 p-4 rounded-2xl border-2 font-bold outline-none text-xl bg-inherit focus:border-emerald-500" /></div>
+                       <button onClick={() => setCurrentView('dashboard')} className="flex items-center gap-1.5 mb-5 opacity-70 font-bold text-sm uppercase"><ArrowLeft className="w-5 h-5" /> {translations[lang].back}</button>
+                       <h2 className="text-3xl font-black mb-2 text-emerald-600 dark:text-emerald-500">{translations[lang].congArchive}</h2>
+                       <div className="relative mb-5 mt-4 w-full min-w-0"><Search className="absolute left-4 top-4 w-6 h-6 opacity-40 text-slate-900 dark:text-white" /><input type="text" placeholder={translations[lang].searchCong} value={searchInfoQuery} onChange={e => setSearchInfoQuery(e.target.value)} className="w-full pl-12 p-4 rounded-2xl border-2 font-bold outline-none text-xl bg-inherit focus:border-emerald-500" /></div>
                        
                        <div className="flex flex-col gap-4 w-full min-w-0">
                          {congressi.filter(i => ((i.name||'').toLowerCase().includes(searchInfoQuery.toLowerCase()) || (i.region||'').toLowerCase().includes(searchInfoQuery.toLowerCase()))).map(info => {
@@ -1064,8 +1477,8 @@
                                       <input type="text" value={editInfoName} onChange={e=>setEditInfoName(e.target.value)} className="w-full p-4 rounded-xl border-2 font-bold text-xl outline-none bg-inherit" />
                                       <input type="text" value={editInfoRegion} onChange={e=>setEditInfoRegion(e.target.value)} placeholder="Luogo/Regione" className="w-full p-4 rounded-xl border-2 font-bold text-xl outline-none bg-inherit" />
                                       <div className="flex gap-2 mt-2 w-full">
-                                          <button onClick={async () => { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'congressi', info.id), { name: editInfoName, region: editInfoRegion }); setEditingInfoId(null); }} className="flex-1 bg-emerald-600 text-white p-4 rounded-xl font-black text-xl flex justify-center items-center gap-2"><Save className="w-6 h-6"/> SALVA</button>
-                                          <button onClick={()=>setEditingInfoId(null)} className="p-4 bg-slate-300 dark:bg-slate-700 rounded-xl font-black text-xl">ANNULLA</button>
+                                          <button onClick={async () => { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'congressi', info.id), { name: editInfoName, region: editInfoRegion }); setEditingInfoId(null); }} className="flex-1 bg-emerald-600 text-white p-4 rounded-xl font-black text-xl flex justify-center items-center gap-2"><Save className="w-6 h-6"/> {translations[lang].saveBtn}</button>
+                                          <button onClick={()=>setEditingInfoId(null)} className="p-4 bg-slate-300 dark:bg-slate-700 rounded-xl font-black text-xl">{translations[lang].cancelBtn}</button>
                                       </div>
                                   </div>
                                </div>
@@ -1077,12 +1490,12 @@
                                     <h3 className="text-xl sm:text-2xl md:text-3xl font-black truncate flex-1 min-w-0 text-slate-900 dark:text-white" title={info.name}>{info.name || 'Senza Nome'}</h3>
                                     <Pencil className="w-6 h-6 shrink-0 text-slate-400 cursor-pointer hover:text-emerald-500" onClick={()=>{ setEditingInfoId(info.id); setEditInfoName(info.name); setEditInfoRegion(info.region||''); }} />
                                  </div>
-                                 <p className="text-base sm:text-lg md:text-xl text-emerald-600 font-bold mt-1 flex items-center gap-1.5 truncate" title={info.region}><MapPin className="w-5 h-5 flex-shrink-0"/> {info.region || 'Luogo non specificato'}</p>
+                                 <p className="text-base sm:text-lg md:text-xl text-emerald-600 font-bold mt-1 flex items-center gap-1.5 truncate" title={info.region}><MapPin className="w-5 h-5 flex-shrink-0"/> {info.region || translations[lang].placeNotSpecified}</p>
                                </div>
                                <div className="flex gap-2 w-full md:w-auto">
                                    <button onClick={() => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'congressi', info.id))} className="p-4 shrink-0 text-red-600 border border-red-200 bg-red-50 dark:bg-red-900/20 rounded-xl"><Trash2 className="w-7 h-7" /></button>
                                    <button onClick={() => { setActiveEntityName(info.name); setActiveEntityRegion(info.region); setBackView('congressi'); setCurrentView('repDetails'); }} className="px-6 py-4 rounded-xl font-black flex items-center justify-center gap-2 shadow-sm border transition-colors flex-1 md:flex-none bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800 text-lg">
-                                       STORICO
+                                       {translations[lang].historyBtn}
                                    </button>
                                </div>
                              </div>
@@ -1098,11 +1511,11 @@
                   const entityShipments = shipments.filter(s => s.destination === activeEntityName);
                   return (
                     <div className={`p-6 md:p-8 rounded-3xl border-2 w-full shadow-sm ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
-                        <button onClick={() => setCurrentView(backView)} className="flex items-center gap-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 font-black text-sm mb-6 uppercase transition-colors"><ArrowLeft className="w-5 h-5" /> Indietro</button>
+                        <button onClick={() => setCurrentView(backView)} className="flex items-center gap-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 font-black text-sm mb-6 uppercase transition-colors"><ArrowLeft className="w-5 h-5" /> {translations[lang].back}</button>
                         
                         <div className="mb-8 border-b-2 border-slate-100 dark:border-slate-700 pb-6">
                             <h2 className="text-4xl font-black text-slate-900 dark:text-white leading-tight mb-2 break-words">{activeEntityName}</h2>
-                            <p className="text-[#3b82f6] font-bold text-xl">{activeEntityRegion || 'Nessuna regione specificata'}</p>
+                            <p className="text-[#3b82f6] font-bold text-xl">{activeEntityRegion || translations[lang].placeNotSpecified}</p>
                         </div>
                         
                         <h3 className="font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-sm mb-4">Storico Assegnazioni ({entityShipments.length})</h3>
@@ -1115,7 +1528,7 @@
                                         className="w-full p-5 flex justify-between items-center text-left hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors focus:outline-none"
                                     >
                                         <div>
-                                            <p className="font-black text-xl text-[#3b82f6]">Spedito il {new Date(s.createdAt).toLocaleString('it-IT')}</p>
+                                            <p className="font-black text-xl text-[#3b82f6]">{translations[lang].registratoIl} {new Date(s.createdAt).toLocaleString('it-IT')}</p>
                                             <p className="text-sm font-bold text-slate-400 mt-1">{s.items.length} prodotti in questa spedizione</p>
                                         </div>
                                         <div className={`p-2 rounded-full ${expandedShipmentId === s.id ? 'bg-[#3b82f6] text-white' : 'bg-slate-100 text-slate-400 dark:bg-slate-700'}`}>
@@ -1146,10 +1559,10 @@
                 {currentView === 'notes' && (
                   <div className="space-y-4 w-full animate-fade-in">
                      <div className={`p-5 rounded-3xl border-2 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
-                       <h2 className="text-2xl font-black mb-4">{editingNoteId ? 'Modifica Nota' : 'Nuova Nota'}</h2>
-                       <input type="text" value={noteSubject} onChange={e => setNoteSubject(e.target.value)} placeholder="Oggetto..." className="w-full p-4 rounded-2xl border-2 font-black text-xl mb-3 outline-none focus:border-blue-500 transition-colors bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-white" />
-                       <textarea value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="Appunti..." className="w-full p-4 rounded-2xl border-2 min-h-[150px] text-xl font-bold outline-none focus:border-blue-500 transition-colors bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-white"></textarea>
-                       <div className="flex gap-2 mt-4"><button onClick={handleSaveNote} className="flex-1 bg-[#3b82f6] text-white py-4 rounded-2xl font-black text-lg flex items-center justify-center gap-2 shadow-md"><Save className="w-6 h-6"/> SALVA</button>{editingNoteId && <button onClick={() => { setEditingNoteId(null); setNoteText(''); setNoteSubject(''); }} className="flex-1 bg-slate-500 text-white py-4 rounded-2xl font-black text-lg shadow-sm">ANNULLA</button>}</div>
+                       <h2 className="text-2xl font-black mb-4">{editingNoteId ? translations[lang].editNote : translations[lang].newNote}</h2>
+                       <input type="text" value={noteSubject} onChange={e => setNoteSubject(e.target.value)} placeholder={translations[lang].subject} className="w-full p-4 rounded-2xl border-2 font-black text-xl mb-3 outline-none focus:border-blue-500 transition-colors bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-white" />
+                       <textarea value={noteText} onChange={e => setNoteText(e.target.value)} placeholder={translations[lang].notesPlaceholder} className="w-full p-4 rounded-2xl border-2 min-h-[150px] text-xl font-bold outline-none focus:border-blue-500 transition-colors bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-white"></textarea>
+                       <div className="flex gap-2 mt-4"><button onClick={handleSaveNote} className="flex-1 bg-[#3b82f6] text-white py-4 rounded-2xl font-black text-lg flex items-center justify-center gap-2 shadow-md"><Save className="w-6 h-6"/> {translations[lang].saveBtn}</button>{editingNoteId && <button onClick={() => { setEditingNoteId(null); setNoteText(''); setNoteSubject(''); }} className="flex-1 bg-slate-500 text-white py-4 rounded-2xl font-black text-lg shadow-sm">{translations[lang].cancelBtn}</button>}</div>
                      </div>
                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                          {notes.map(n => (
@@ -1186,7 +1599,7 @@
                   <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-sm flex justify-center items-center p-4">
                     <div className="w-full max-w-md max-h-[90vh] rounded-3xl border-2 border-emerald-500 shadow-2xl flex flex-col overflow-hidden bg-white dark:bg-slate-900">
                       <div className="flex justify-between items-center p-5 border-b-2 border-emerald-100 dark:border-emerald-900/30">
-                        <h3 className="text-xl font-black text-emerald-500 uppercase tracking-wide">Lotti e Scadenze</h3>
+                        <h3 className="text-xl font-black text-emerald-500 uppercase tracking-wide">{translations[lang].lotsTitle}</h3>
                         <X onClick={() => setEditingLotsId(null)} className="w-8 h-8 cursor-pointer text-slate-400 hover:text-red-500" />
                       </div>
                       <div className="p-5 space-y-5 overflow-y-auto flex-1 custom-scrollbar">
@@ -1207,11 +1620,11 @@
 
                             <div className="grid grid-cols-5 gap-4 mt-6">
                               <div className="relative col-span-2">
-                                  <span className="absolute -top-4 left-3 px-2 text-base md:text-lg font-black text-[#3b82f6] dark:text-blue-400 bg-white dark:bg-slate-800">Pz/Cart</span>
+                                  <span className="absolute -top-4 left-3 px-2 text-base md:text-lg font-black text-[#3b82f6] dark:text-blue-400 bg-white dark:bg-slate-800">{translations[lang].pzCart}</span>
                                   <input type="number" value={lotto.cartonSize || items.find(i=>i.id===editingLotsId)?.cartonSize || 10} onChange={e => { const d = [...editLotsData]; d[idx].cartonSize = e.target.value; setEditLotsData(d); }} className="w-full p-4 rounded-xl border-2 font-black text-3xl text-center bg-transparent outline-none dark:text-white" />
                               </div>
                               <div className="relative col-span-3">
-                                  <span className="absolute -top-4 left-3 px-2 text-base md:text-lg font-black text-emerald-600 dark:text-emerald-400 bg-white dark:bg-slate-800">Tot Pz</span>
+                                  <span className="absolute -top-4 left-3 px-2 text-base md:text-lg font-black text-emerald-600 dark:text-emerald-400 bg-white dark:bg-slate-800">{translations[lang].totalPz}</span>
                                   <input type="number" value={lotto.qty || ''} onChange={e => { const d = [...editLotsData]; d[idx].qty = e.target.value; setEditLotsData(d); }} className="w-full p-4 rounded-xl border-2 font-black text-3xl text-center border-emerald-500 bg-transparent outline-none dark:text-white" />
                               </div>
                             </div>
@@ -1219,7 +1632,7 @@
                         ))}
                       </div>
                       <div className="p-5 border-t-2 border-emerald-100 dark:border-emerald-900/30 flex flex-col gap-3">
-                          <button onClick={() => setEditLotsData([...editLotsData, { id: '', expiry: '', qty: '', cartonSize: items.find(i=>i.id===editingLotsId)?.cartonSize || 10 }])} className="w-full border-2 border-dashed border-emerald-500 text-emerald-600 py-4 rounded-xl font-black flex items-center justify-center gap-2 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"><Plus className="w-6 h-6" /> AGGIUNGI LOTTO</button>
+                          <button onClick={() => setEditLotsData([...editLotsData, { id: '', expiry: '', qty: '', cartonSize: items.find(i=>i.id===editingLotsId)?.cartonSize || 10 }])} className="w-full border-2 border-dashed border-emerald-500 text-emerald-600 py-4 rounded-xl font-black flex items-center justify-center gap-2 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"><Plus className="w-6 h-6" /> {translations[lang].addLot}</button>
                           <button onClick={async () => {
                              const item = items.find(i=>i.id===editingLotsId);
                              const currentStock = item ? parseInt(item.stock) || 0 : 0;
@@ -1227,7 +1640,7 @@
                              const finalStock = Math.max(currentStock, lotsTotal);
                              await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'items', editingLotsId), { lots: editLotsData, stock: finalStock });
                              setEditingLotsId(null);
-                          }} className="w-full bg-emerald-500 text-white py-5 rounded-xl font-black text-xl shadow-md flex items-center justify-center gap-2 hover:bg-emerald-600 active:scale-95 transition-transform"><Save className="w-6 h-6"/> SALVA LOTTI</button>
+                          }} className="w-full bg-emerald-500 text-white py-5 rounded-xl font-black text-xl shadow-md flex items-center justify-center gap-2 hover:bg-emerald-600 active:scale-95 transition-transform"><Save className="w-6 h-6"/> {translations[lang].saveLots}</button>
                       </div>
                     </div>
                   </div>
@@ -1238,19 +1651,19 @@
                   <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-sm flex justify-center items-center p-4">
                     <div className="w-full max-w-sm rounded-3xl border-2 border-green-500 shadow-2xl flex flex-col overflow-hidden bg-white dark:bg-slate-900">
                       <div className="flex justify-between items-center p-5 border-b-2 border-green-100 dark:border-green-900/30">
-                        <h3 className="text-xl font-black text-green-500 uppercase tracking-wide flex items-center gap-2"><MessageCircle className="w-6 h-6"/> Invia Ordine</h3>
+                        <h3 className="text-xl font-black text-green-500 uppercase tracking-wide flex items-center gap-2"><MessageCircle className="w-6 h-6"/> {translations[lang].sendOrder}</h3>
                         <X onClick={() => setShowWhatsAppModal(false)} className="w-8 h-8 cursor-pointer text-slate-400 hover:text-red-500" />
                       </div>
                       <div className="p-5 space-y-3">
                         <p className="font-bold opacity-80 mb-2">Scegli quali prodotti inviare su WhatsApp:</p>
                         
                         <button onClick={() => generateWhatsAppLink('Tutto')} className="w-full p-4 bg-green-500 text-white rounded-2xl font-black text-lg flex justify-between items-center shadow-md active:scale-95 transition-transform">
-                            TUTTI I REPARTI
+                            {translations[lang].allDepts}
                             <span className="bg-white/20 px-3 py-1 rounded-lg text-sm">{items.filter(i => i.isToOrder).length} pz</span>
                         </button>
                         
                         <div className="grid gap-2 mt-4 pt-4 border-t-2 border-dashed border-slate-200 dark:border-slate-700">
-                            <p className="text-xs font-black text-slate-400 uppercase">Singoli Reparti</p>
+                            <p className="text-xs font-black text-slate-400 uppercase">{translations[lang].singleDepts}</p>
                             {Array.from(new Set(items.filter(i => i.isToOrder).map(i => i.category || 'Altro'))).map(cat => {
                                 const count = items.filter(i => i.isToOrder && (i.category || 'Altro') === cat).length;
                                 return (
@@ -1273,15 +1686,15 @@
                   <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6">
                       <div className="bg-white dark:bg-slate-800 p-8 rounded-[40px] border-4 border-red-500 shadow-2xl text-center space-y-6 max-w-sm w-full animate-fade-in">
                           <div className="flex justify-center"><AlertTriangle className="w-20 h-20 text-red-500 animate-pulse"/></div>
-                          <h3 className="text-3xl font-black text-slate-900 dark:text-white">Elimina Prodotto</h3>
-                          <p className="text-xl font-bold opacity-70 text-slate-900 dark:text-white">Vuoi davvero eliminare definitivamente "{itemToDelete.name}"? L'operazione non è reversibile.</p>
+                          <h3 className="text-3xl font-black text-slate-900 dark:text-white">{translations[lang].deleteProduct}</h3>
+                          <p className="text-xl font-bold opacity-70 text-slate-900 dark:text-white">{translations[lang].deleteConfirm} "{itemToDelete.name}"? L'operazione non è reversibile.</p>
                           <div className="flex flex-col gap-3">
                               <button onClick={async () => {
                                   await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'items', itemToDelete.id));
                                   setItemToDelete(null);
                                   setEditingItemId(null);
-                              }} className="w-full bg-red-600 text-white py-5 rounded-2xl font-black text-xl shadow-md uppercase active:scale-95 transition-transform">Sì, Elimina</button>
-                              <button onClick={() => setItemToDelete(null)} className="w-full bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white py-4 rounded-2xl font-black text-xl uppercase active:scale-95 transition-transform">Annulla</button>
+                              }} className="w-full bg-red-600 text-white py-5 rounded-2xl font-black text-xl shadow-md uppercase active:scale-95 transition-transform">{translations[lang].yesDelete}</button>
+                              <button onClick={() => setItemToDelete(null)} className="w-full bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white py-4 rounded-2xl font-black text-xl uppercase active:scale-95 transition-transform">{translations[lang].cancelBtn}</button>
                           </div>
                       </div>
                   </div>
@@ -1292,22 +1705,22 @@
                   <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6">
                       <div className="bg-white dark:bg-slate-800 p-8 rounded-[40px] border-4 border-red-500 shadow-2xl text-center space-y-6 max-w-sm w-full animate-fade-in">
                           <div className="flex justify-center"><AlertTriangle className="w-20 h-20 text-red-500 animate-pulse"/></div>
-                          <h3 className="text-3xl font-black text-slate-900 dark:text-white">Sei Sicuro?</h3>
-                          <p className="text-xl font-bold opacity-70 text-slate-900 dark:text-white">Questa operazione cancellerà definitivamente l'intero storico movimenti. Non potrai tornare indietro.</p>
+                          <h3 className="text-3xl font-black text-slate-900 dark:text-white">{translations[lang].clearConfirmTitle}</h3>
+                          <p className="text-xl font-bold opacity-70 text-slate-900 dark:text-white">{translations[lang].clearConfirmText}</p>
                           <div className="flex flex-col gap-3">
-                              <button onClick={handleClearAllLogs} className="w-full bg-red-600 text-white py-5 rounded-2xl font-black text-xl uppercase shadow-md active:scale-95 transition-transform">SÌ, CANCELLA TUTTO</button>
-                              <button onClick={() => setShowClearLogsModal(false)} className="w-full bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white py-4 rounded-2xl font-black text-xl active:scale-95 transition-transform">ANNULLA</button>
+                              <button onClick={handleClearAllLogs} className="w-full bg-red-600 text-white py-5 rounded-2xl font-black text-xl uppercase shadow-md active:scale-95 transition-transform">{translations[lang].clearAll}</button>
+                              <button onClick={() => setShowClearLogsModal(false)} className="w-full bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white py-4 rounded-2xl font-black text-xl active:scale-95 transition-transform">{translations[lang].cancelBtn}</button>
                           </div>
                       </div>
                   </div>
               )}
 
               <nav className={`fixed bottom-0 left-0 w-full h-[75px] border-t-2 flex justify-around items-center px-1 z-[150] shadow-[0_-4px_10px_rgba(0,0,0,0.1)] ${isDarkMode ? 'bg-[#0f172a] border-slate-800' : 'bg-white border-slate-200'}`} style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-                <button onClick={() => setCurrentView('dashboard')} className={`flex-1 flex flex-col items-center gap-1 ${currentView === 'dashboard' || currentView === 'informatori' || currentView === 'congressi' || currentView === 'new' || currentView === 'repDetails' ? 'text-[#3b82f6]' : 'text-slate-400'}`}><Users className="w-7 h-7" /><span className="text-[11px] font-black uppercase">Campioni</span></button>
-                <button onClick={() => setCurrentView('inventory')} className={`flex-1 flex flex-col items-center gap-1 ${currentView === 'inventory' ? 'text-[#3b82f6]' : 'text-slate-400'}`}><ClipboardList className="w-7 h-7" /><span className="text-[11px] font-black uppercase">Magazzino</span></button>
-                <button onClick={() => setCurrentView('ordini')} className={`flex-1 flex flex-col items-center gap-1 ${currentView === 'ordini' ? 'text-orange-600' : 'text-slate-400'}`}><ShoppingCart className="w-7 h-7" /><span className="text-[11px] font-black uppercase">Ordini</span></button>
-                <button onClick={() => setCurrentView('history')} className={`flex-1 flex flex-col items-center gap-1 ${currentView === 'history' ? 'text-[#3b82f6]' : 'text-slate-400'}`}><Clock className="w-7 h-7" /><span className="text-[11px] font-black uppercase">Storico</span></button>
-                <button onClick={() => setCurrentView('notes')} className={`flex-1 flex flex-col items-center gap-1 ${currentView === 'notes' ? 'text-[#3b82f6]' : 'text-slate-400'}`}><StickyNote className="w-7 h-7" /><span className="text-[11px] font-black uppercase">Note</span></button>
+                <button onClick={() => setCurrentView('dashboard')} className={`flex-1 flex flex-col items-center gap-1 ${currentView === 'dashboard' || currentView === 'informatori' || currentView === 'repDetails' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}><Users className="w-6 h-6"/><span className="text-[10px] font-black uppercase tracking-tighter">Campioni</span></button>
+                <button onClick={() => setCurrentView('inventory')} className={`flex-1 flex flex-col items-center gap-1 ${currentView === 'inventory' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}><ClipboardList className="w-6 h-6"/><span className="text-[10px] font-black uppercase tracking-tighter">Magazzino</span></button>
+                <button onClick={() => setCurrentView('ordini')} className={`flex-1 flex flex-col items-center gap-1 ${currentView === 'ordini' ? 'text-orange-600 dark:text-orange-400' : 'text-slate-500 dark:text-slate-400'}`}><ShoppingCart className="w-6 h-6"/><span className="text-[10px] font-black uppercase tracking-tighter">Ordini</span></button>
+                <button onClick={() => setCurrentView('history')} className={`flex-1 flex flex-col items-center gap-1 ${currentView === 'history' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}><Clock className="w-6 h-6"/><span className="text-[10px] font-black uppercase tracking-tighter">Storico</span></button>
+                <button onClick={() => setCurrentView('notes')} className={`flex-1 flex flex-col items-center gap-1 ${currentView === 'notes' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}><StickyNote className="w-6 h-6"/><span className="text-[10px] font-black uppercase tracking-tighter">Note</span></button>
               </nav>
             </div>
           );
