@@ -112,7 +112,7 @@
           const CORRECT_PIN = '12345'; 
 
           const [shipments, setShipments] = useState([]);
-          const [items, setItems] = useState([]);
+          const [items, setNewItems] = useState([]);
           const [notes, setNotes] = useState([]);
           const [logs, setLogs] = useState([]);
           const [informatori, setInformatori] = useState([]); 
@@ -258,7 +258,7 @@
             const base = ['artifacts', appId, 'public', 'data'];
             const unsub = [
               onSnapshot(collection(db, ...base, 'shipments'), s => setShipments(s.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (b.createdAt||0) - (a.createdAt||0)))),
-              onSnapshot(collection(db, ...base, 'items'), s => setItems(s.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => ((a.name||'').localeCompare(b.name||''))))),
+              onSnapshot(collection(db, ...base, 'items'), s => setNewItems(s.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => ((a.name||'').localeCompare(b.name||''))))),
               onSnapshot(collection(db, ...base, 'notes'), s => setNotes(s.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (b.createdAt||0) - (a.createdAt||0)))),
               onSnapshot(collection(db, ...base, 'logs'), s => setLogs(s.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (b.date||0) - (a.date||0)))),
               onSnapshot(collection(db, ...base, 'informatori'), s => setInformatori(s.docs.map(d => ({id: d.id, ...d.data()})))),
@@ -683,7 +683,7 @@
                             </div>
                             <div className="grid grid-cols-2 gap-4 mt-3 w-full">
                               <div className="relative mt-2"><span className={`absolute -top-3.5 left-2 px-2 text-base md:text-lg font-black text-orange-500 dark:text-orange-400 ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>Allarme Pz</span><input type="number" value={editFormData.alertThreshold} onChange={e => setEditFormData({...editFormData, alertThreshold: e.target.value})} className={`w-full p-4 rounded-xl border-2 text-center font-black text-2xl bg-transparent ${isDarkMode ? 'text-white border-slate-600' : 'border-slate-300'}`} /></div>
-                              <div className="relative mt-2"><span className={`absolute -top-3.5 left-2 px-2 text-base md:text-lg font-black text-emerald-600 dark:text-emerald-400 ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>Pz/Conf</span><input type="number" value={editFormData.piecesPerPack} onChange={e => setEditFormData({...editFormData, piecesPerPack: e.target.value})} className={`w-full p-4 rounded-xl border-2 text-center font-black text-2xl border-emerald-300 bg-transparent ${isDarkMode ? 'text-white' : ''}`} /></div>
+                              <div className="relative mt-2"><span className={`absolute -top-3.5 left-2 px-2 text-base md:text-lg font-black text-emerald-600 dark:text-emerald-400 ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>Pz/Conf</span><input type="number" value={editFormData.piecesPerPack} onChange={e => setNewItems(items.map(i => i.id === editingItemId ? { ...i, piecesPerPack: parseInt(e.target.value) || 1 } : i))} className={`w-full p-4 rounded-xl border-2 text-center font-black text-2xl border-emerald-300 bg-transparent ${isDarkMode ? 'text-white' : ''}`} /></div>
                             </div>
                             <div className="flex gap-2 items-center w-full mt-3 p-3 bg-slate-50 dark:bg-slate-700/50 rounded-2xl border-2 border-slate-200 dark:border-slate-600">
                                <input type="checkbox" checked={editFormData.excludeFromSamples || false} onChange={e => setEditFormData({...editFormData, excludeFromSamples: e.target.checked})} className="w-6 h-6 flex-shrink-0 accent-blue-600" id={`excl-${item.id}`} />
@@ -920,7 +920,7 @@
                      </div>
 
                      {shipments.map(s => (
-                       <div key={s.id} className="p-5 rounded-3xl border-2 bg-white dark:bg-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm transition-all duration-300">
+                       <div key={s.id} className="p-4 sm:p-5 rounded-3xl border-2 bg-white dark:bg-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm transition-all duration-300 min-w-0 overflow-hidden">
                          <div className="flex-1 min-w-0">
                             <div className="flex flex-wrap items-center gap-2 mb-2 w-full">
                                 <span className={`text-xs font-black uppercase px-2 py-1 rounded border flex-shrink-0 ${s.destType === 'congresso' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>{s.destType === 'congresso' ? 'CONGRESSO' : 'INFORMATORE'}</span>
@@ -996,7 +996,7 @@
                                 <button onClick={() => setExtraItems(extraItems.filter(s => s.id !== item.id))} className="text-red-500 p-2"><Trash2 className="w-6 h-6"/></button>
                             </div>
                         ))}
-                        <button onClick={() => setNewDest(newDest)} className="text-[#3b82f6] font-black text-base mt-2 flex items-center gap-1"><Plus className="w-6 h-6"/> Aggiungi riga</button>
+                        <button onClick={() => setExtraItems([...extraItems, { id: Date.now().toString(), name: '', qty: '' }])} className="text-[#3b82f6] font-black text-base mt-2 flex items-center gap-1"><Plus className="w-6 h-6"/> Aggiungi riga</button>
                     </div>
 
                     <button onClick={handleAssignSamples} className={`w-full text-white py-5 rounded-2xl font-black text-xl shadow-md flex items-center justify-center gap-2 ${destType === 'congresso' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-[#3b82f6] hover:bg-blue-700'}`}><Save className="w-6 h-6" /> REGISTRA ASSEGNAZIONE</button>
@@ -1006,15 +1006,15 @@
                 {/* --- RUBRICA INFORMATORI --- */}
                 {currentView === 'informatori' && (
                   <div className="space-y-4 w-full">
-                     <div className={`p-5 rounded-3xl border-2 w-full shadow-sm ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+                     <div className={`p-4 sm:p-5 rounded-3xl border-2 w-full shadow-sm ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
                        <button onClick={() => setCurrentView('dashboard')} className="flex items-center gap-1.5 mb-5 opacity-70 font-bold text-sm uppercase"><ArrowLeft className="w-5 h-5" /> Indietro</button>
                        <h2 className="text-3xl font-black mb-2 text-slate-900 dark:text-white">Rubrica Informatori</h2>
                        <div className="relative mb-5 mt-4 w-full min-w-0"><Search className="absolute left-4 top-4 w-6 h-6 opacity-40 text-slate-900 dark:text-white" /><input type="text" placeholder="Cerca nome..." value={searchInfoQuery} onChange={e => setSearchInfoQuery(e.target.value)} className="w-full pl-12 p-4 rounded-2xl border-2 font-bold outline-none text-xl bg-inherit" /></div>
                        
-                       <div className="grid gap-4 w-full">
+                       <div className="flex flex-col gap-4 w-full min-w-0">
                          {informatori.filter(i => ((i.name||'').toLowerCase().includes(searchInfoQuery.toLowerCase()) || (i.region||'').toLowerCase().includes(searchInfoQuery.toLowerCase()))).map(info => {
                            if (editingInfoId === info.id) return (
-                               <div key={info.id} className="p-5 rounded-2xl border-2 border-blue-500 shadow-md w-full bg-slate-50 dark:bg-slate-900">
+                               <div key={info.id} className="p-4 sm:p-5 rounded-2xl border-2 border-blue-500 shadow-md w-full bg-slate-50 dark:bg-slate-900">
                                   <div className="flex flex-col gap-3 w-full">
                                       <input type="text" value={editInfoName} onChange={e=>setEditInfoName(e.target.value)} className="w-full p-4 rounded-xl border-2 font-bold text-xl outline-none bg-inherit" />
                                       <input type="text" value={editInfoRegion} onChange={e=>setEditInfoRegion(e.target.value)} placeholder="Regione" className="w-full p-4 rounded-xl border-2 font-bold text-xl outline-none bg-inherit" />
@@ -1026,15 +1026,15 @@
                                </div>
                            );
                            return (
-                             <div key={info.id} className="p-5 rounded-2xl border-2 w-full flex flex-col md:flex-row justify-between md:items-center shadow-sm bg-slate-50 dark:bg-slate-900 transition-all duration-300">
+                             <div key={info.id} className="p-4 sm:p-5 rounded-2xl border-2 w-full flex flex-col md:flex-row justify-between md:items-center shadow-sm bg-slate-50 dark:bg-slate-900 transition-all duration-300 min-w-0 overflow-hidden">
                                <div className="flex-1 min-w-0 w-full mb-3 md:mb-0">
                                  <div className="flex items-center gap-3 w-full min-w-0">
-                                    <h3 className="text-3xl font-black truncate flex-1 min-w-0" title={info.name}>{info.name || 'Senza Nome'}</h3>
+                                    <h3 className="text-xl sm:text-2xl md:text-3xl font-black truncate flex-1 min-w-0" title={info.name}>{info.name || 'Senza Nome'}</h3>
                                     <Pencil className="w-6 h-6 shrink-0 text-slate-400 cursor-pointer hover:text-blue-500" onClick={()=>{ setEditingInfoId(info.id); setEditInfoName(info.name); setEditInfoRegion(info.region||''); }} />
                                  </div>
-                                 <p className="text-[#3b82f6] font-bold text-xl mt-1 truncate" title={info.region}>{info.region || 'Nessuna regione'}</p>
+                                 <p className="text-base sm:text-lg md:text-xl text-[#3b82f6] font-bold mt-1 truncate" title={info.region}>{info.region || 'Nessuna regione'}</p>
                                </div>
-                               <div className="flex gap-2">
+                               <div className="flex gap-2 w-full md:w-auto">
                                    <button onClick={() => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'informatori', info.id))} className="p-4 shrink-0 text-red-600 border border-red-200 bg-red-50 dark:bg-red-900/20 rounded-xl"><Trash2 className="w-7 h-7" /></button>
                                    <button onClick={() => { setActiveEntityName(info.name); setActiveEntityRegion(info.region); setBackView('informatori'); setCurrentView('repDetails'); }} className="px-6 py-4 rounded-xl font-black flex items-center justify-center gap-2 shadow-sm border transition-colors flex-1 md:flex-none bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800 text-lg">
                                        STORICO
@@ -1051,15 +1051,15 @@
                 {/* --- RUBRICA CONGRESSI --- */}
                 {currentView === 'congressi' && (
                   <div className="space-y-4 w-full">
-                     <div className={`p-5 rounded-3xl border-2 w-full shadow-sm ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+                     <div className={`p-4 sm:p-5 rounded-3xl border-2 w-full shadow-sm ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
                        <button onClick={() => setCurrentView('dashboard')} className="flex items-center gap-1.5 mb-5 opacity-70 font-bold text-sm uppercase"><ArrowLeft className="w-5 h-5" /> Indietro</button>
                        <h2 className="text-3xl font-black mb-2 text-emerald-600 dark:text-emerald-500">Archivio Congressi</h2>
                        <div className="relative mb-5 mt-4 w-full min-w-0"><Search className="absolute left-4 top-4 w-6 h-6 opacity-40 text-slate-900 dark:text-white" /><input type="text" placeholder="Cerca congresso..." value={searchInfoQuery} onChange={e => setSearchInfoQuery(e.target.value)} className="w-full pl-12 p-4 rounded-2xl border-2 font-bold outline-none text-xl bg-inherit focus:border-emerald-500" /></div>
                        
-                       <div className="grid gap-4 w-full">
+                       <div className="flex flex-col gap-4 w-full min-w-0">
                          {congressi.filter(i => ((i.name||'').toLowerCase().includes(searchInfoQuery.toLowerCase()) || (i.region||'').toLowerCase().includes(searchInfoQuery.toLowerCase()))).map(info => {
                            if (editingInfoId === info.id) return (
-                               <div key={info.id} className="p-5 rounded-2xl border-2 border-emerald-500 shadow-md w-full bg-slate-50 dark:bg-slate-900">
+                               <div key={info.id} className="p-4 sm:p-5 rounded-2xl border-2 border-emerald-500 shadow-md w-full bg-slate-50 dark:bg-slate-900">
                                   <div className="flex flex-col gap-3 w-full">
                                       <input type="text" value={editInfoName} onChange={e=>setEditInfoName(e.target.value)} className="w-full p-4 rounded-xl border-2 font-bold text-xl outline-none bg-inherit" />
                                       <input type="text" value={editInfoRegion} onChange={e=>setEditInfoRegion(e.target.value)} placeholder="Luogo/Regione" className="w-full p-4 rounded-xl border-2 font-bold text-xl outline-none bg-inherit" />
@@ -1071,15 +1071,15 @@
                                </div>
                            );
                            return (
-                             <div key={info.id} className="p-5 rounded-2xl border-2 w-full flex flex-col md:flex-row justify-between md:items-center shadow-sm bg-slate-50 dark:bg-slate-900 transition-all duration-300">
+                             <div key={info.id} className="p-4 sm:p-5 rounded-2xl border-2 w-full flex flex-col md:flex-row justify-between md:items-center shadow-sm bg-slate-50 dark:bg-slate-900 transition-all duration-300 min-w-0 overflow-hidden">
                                <div className="flex-1 min-w-0 w-full mb-3 md:mb-0">
                                  <div className="flex items-center gap-3 w-full min-w-0">
-                                    <h3 className="text-3xl font-black truncate flex-1 min-w-0 text-slate-900 dark:text-white" title={info.name}>{info.name || 'Senza Nome'}</h3>
+                                    <h3 className="text-xl sm:text-2xl md:text-3xl font-black truncate flex-1 min-w-0 text-slate-900 dark:text-white" title={info.name}>{info.name || 'Senza Nome'}</h3>
                                     <Pencil className="w-6 h-6 shrink-0 text-slate-400 cursor-pointer hover:text-emerald-500" onClick={()=>{ setEditingInfoId(info.id); setEditInfoName(info.name); setEditInfoRegion(info.region||''); }} />
                                  </div>
-                                 <p className="text-emerald-600 font-bold text-xl mt-1 flex items-center gap-1.5 truncate" title={info.region}><MapPin className="w-5 h-5 flex-shrink-0"/> {info.region || 'Luogo non specificato'}</p>
+                                 <p className="text-base sm:text-lg md:text-xl text-emerald-600 font-bold mt-1 flex items-center gap-1.5 truncate" title={info.region}><MapPin className="w-5 h-5 flex-shrink-0"/> {info.region || 'Luogo non specificato'}</p>
                                </div>
-                               <div className="flex gap-2">
+                               <div className="flex gap-2 w-full md:w-auto">
                                    <button onClick={() => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'congressi', info.id))} className="p-4 shrink-0 text-red-600 border border-red-200 bg-red-50 dark:bg-red-900/20 rounded-xl"><Trash2 className="w-7 h-7" /></button>
                                    <button onClick={() => { setActiveEntityName(info.name); setActiveEntityRegion(info.region); setBackView('congressi'); setCurrentView('repDetails'); }} className="px-6 py-4 rounded-xl font-black flex items-center justify-center gap-2 shadow-sm border transition-colors flex-1 md:flex-none bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800 text-lg">
                                        STORICO
