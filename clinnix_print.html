@@ -20,13 +20,13 @@
         }
     </script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Configurazione Firebase ClinnixPro
         const firebaseConfig = {
@@ -43,10 +43,15 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // Dati di fallback
-        const mockLotti = [{id: "mock1", name: "FOLIFERRO", lots: [{ id: "R664", expiry: "04/29" }]}];
-        const mockRubrica = [];
-        
+        // Variabili globali in memoria
+        window.lottiCloud = []; window.rubricaCloud = []; window.mittentiCloud = [];
+        window.selectedContactId = null; window.editingContactId = null;
+        window.contactToDeleteId = null; window.contactToDeleteType = null;
+
+        let unsubLotti = null; let unsubInformatori = null; let unsubCongressi = null; let unsubMittenti = null;
+
+        window.mittenteAttivo = { nome: "CLINNIX S.R.L.", indirizzo: "VIA DEL LAVORO, 10", cap: "80100", citta: "NAPOLI", prov: "NA" };
+
         const urlParams = new URLSearchParams(window.location.search);
         const urlPin = urlParams.get('pin');
         if (urlPin) sessionStorage.setItem('clinnix_session_pin', urlPin);
@@ -57,34 +62,10 @@
             if (backBtn) backBtn.href = `index.html?pin=${sessionPin}`;
         });
 
-        window.lottiCloud = mockLotti;
-        window.rubricaCloud = mockRubrica;
-        window.mittentiCloud = [];
-        window.selectedContactId = null;
-        window.editingContactId = null;
-        
-        // Variabili per l'eliminazione
-        window.contactToDeleteId = null;
-        window.contactToDeleteType = null;
-
-        let unsubLotti = null;
-        let unsubInformatori = null;
-        let unsubCongressi = null;
-        let unsubMittenti = null;
-
-        window.mittenteAttivo = {
-            nome: "CLINNIX S.R.L.",
-            indirizzo: "VIA DEL LAVORO, 10",
-            cap: "80100",
-            citta: "NAPOLI",
-            prov: "NA"
-        };
-
         window.showStatus = (msg) => {
             const el = document.getElementById('cloud-status');
             if(!el) return;
-            el.innerText = msg;
-            el.classList.remove('opacity-0');
+            el.innerText = msg; el.classList.remove('opacity-0');
             setTimeout(() => el.classList.add('opacity-0'), 3000);
         };
 
@@ -97,59 +78,15 @@
             }
         };
 
-        window.syncFields = () => {
-            const s = document.getElementById('select-lotti');
-            if (!s) return;
-            const o = s.options[s.selectedIndex];
-            const ip = document.getElementById('i-p');
-            const il = document.getElementById('i-l');
-            const ie = document.getElementById('i-e');
-            if(o && o.value) {
-                if (ip) ip.value = o.getAttribute('data-n') || '';
-                if (il) il.value = o.getAttribute('data-l') || '';
-                if (ie) ie.value = o.getAttribute('data-e') || '';
-            } else {
-                if (ip) ip.value = '';
-                if (il) il.value = '';
-                if (ie) ie.value = '';
-            }
-        };
-
-        window.popolaLotti = (data) => {
-            const select = document.getElementById('select-lotti');
+        // --- GESTIONE CATEGORIE INVENTARIO ---
+        window.popolaCategorieInv = (data) => {
+            const select = document.getElementById('select-cat-inv');
             if (!select) return;
-            select.innerHTML = '<option value="">-- Seleziona Prodotto --</option>';
-            let list = [];
-            data.forEach(item => {
-                const name = item.name || item.nome || 'Prodotto';
-                if (item.lots) item.lots.forEach((l, i) => {
-                    let id = l.id || l.lotto || l.lot || '';
-                    if (id && (l.expiry || l.scadenza)) list.push({ name, lot: id, exp: l.expiry || l.scadenza, key: `${item.id}_${i}` });
-                });
-            });
-            list.sort((a,b) => a.name.localeCompare(b.name)).forEach(o => {
-                const opt = document.createElement('option');
-                opt.value = o.key; opt.setAttribute('data-n', o.name); opt.setAttribute('data-l', o.lot); opt.setAttribute('data-e', o.exp);
-                opt.textContent = `${o.name} (Lot: ${o.lot})`;
-                select.appendChild(opt);
-            });
-        };
-
-        window.popolaRubrica = (data) => {
-            const select = document.getElementById('select-rubrica');
-            if (!select) return;
-            select.innerHTML = '<option value="">-- Seleziona Destinatario --</option>';
-            data.sort((a,b) => (a.nome || a.name || '').localeCompare(b.nome || b.name || '')).forEach(d => {
-                const opt = document.createElement('option');
-                opt.value = d.id; 
-                
-                // Formatta il nome della città senza parentesi vuote
-                let locStr = `${d.citta || d.region || d.city || ''}`;
-                if(d.prov || d.province) locStr += ` (${d.prov || d.province})`;
-                
-                opt.textContent = `${d.nome || d.name || 'Senza Nome'} - ${locStr}`;
-                select.appendChild(opt);
-            });
+            const currentVal = select.value;
+            const cats = [...new Set(data.map(i => i.category || 'Altre Categorie'))].sort();
+            select.innerHTML = '<option value="ALL">Tutte le Tipologie</option>';
+            cats.forEach(c => { select.innerHTML += `<option value="${c}">${c}</option>`; });
+            if(cats.includes(currentVal)) select.value = currentVal;
         };
 
         // --- GESTIONE NUOVO LOTTO/PRODOTTO ---
@@ -158,9 +95,7 @@
             if (dl) {
                 dl.innerHTML = '';
                 const uniqueNames = [...new Set(window.lottiCloud.map(i => i.name || i.nome))].filter(Boolean).sort();
-                uniqueNames.forEach(n => {
-                    const opt = document.createElement('option'); opt.value = n; dl.appendChild(opt);
-                });
+                uniqueNames.forEach(n => { const opt = document.createElement('option'); opt.value = n; dl.appendChild(opt); });
             }
             document.getElementById('nl-nome').value = ''; document.getElementById('nl-lotto').value = ''; document.getElementById('nl-scad').value = '';
             document.getElementById('modal-nuovo-lotto').classList.remove('hidden');
@@ -172,7 +107,6 @@
             const nome = document.getElementById('nl-nome').value.trim().toUpperCase();
             const lotto = document.getElementById('nl-lotto').value.trim().toUpperCase();
             const scad = document.getElementById('nl-scad').value.trim();
-
             if (!nome || !lotto || !scad) { window.showStatus("Tutti i campi sono obbligatori!"); return; }
 
             const existingItem = window.lottiCloud.find(x => (x.name || x.nome || '').toUpperCase() === nome);
@@ -180,8 +114,7 @@
 
             try {
                 if (existingItem) {
-                    let lots = Array.isArray(existingItem.lots) ? [...existingItem.lots] : [];
-                    lots.push(newLotObj);
+                    let lots = Array.isArray(existingItem.lots) ? [...existingItem.lots] : []; lots.push(newLotObj);
                     await updateDoc(doc(db, 'artifacts', MASTER_ID, 'public', 'data', 'items', existingItem.id), { lots });
                     window.showStatus("Lotto aggiunto!");
                 } else {
@@ -189,16 +122,7 @@
                     await addDoc(collection(db, 'artifacts', MASTER_ID, 'public', 'data', 'items'), newItem);
                     window.showStatus("Nuovo prodotto creato!");
                 }
-                
                 window.closeNuovoLottoModal();
-                setTimeout(() => {
-                    const sel = document.getElementById('select-lotti');
-                    for (let i = 0; i < sel.options.length; i++) {
-                        if (sel.options[i].getAttribute('data-n') === nome && sel.options[i].getAttribute('data-l') === lotto) {
-                            sel.selectedIndex = i; window.syncFields(); break;
-                        }
-                    }
-                }, 1200);
             } catch (error) { window.showStatus("Errore nel salvataggio!"); }
         };
 
@@ -228,16 +152,8 @@
             }
         };
 
-        window.cambiaMittenteAttivo = (id) => {
-            const m = window.mittentiCloud.find(x => x.id === id);
-            if(m) { window.mittenteAttivo = m; window.aggiornaLabelMittente(); }
-        };
-
-        window.aggiornaLabelMittente = () => {
-            const m = window.mittenteAttivo;
-            const label = document.getElementById('p-mit-nome');
-            if(m && label) { label.innerText = `${m.nome} - ${m.indirizzo} - ${m.cap} ${m.citta} (${m.prov})`; }
-        };
+        window.cambiaMittenteAttivo = (id) => { const m = window.mittentiCloud.find(x => x.id === id); if(m) { window.mittenteAttivo = m; window.aggiornaLabelMittente(); } };
+        window.aggiornaLabelMittente = () => { const m = window.mittenteAttivo; const label = document.getElementById('p-mit-nome'); if(m && label) { label.innerText = `${m.nome} - ${m.indirizzo} - ${m.cap} ${m.citta} (${m.prov})`; } };
 
         window.nuovoMittente = () => {
             const s = document.getElementById('gestione-seleziona-mittente'); if(s) s.value = '';
@@ -259,22 +175,15 @@
         };
 
         window.salvaMittenteCloud = async () => {
-            const id = document.getElementById('mit-id').value;
-            const nome = document.getElementById('mit-nome').value.trim().toUpperCase();
-            const ind = document.getElementById('mit-ind').value.trim().toUpperCase();
-            const cap = document.getElementById('mit-cap').value.trim();
-            const citta = document.getElementById('mit-citta').value.trim().toUpperCase();
-            const prov = document.getElementById('mit-prov').value.trim().toUpperCase();
+            const id = document.getElementById('mit-id').value; const nome = document.getElementById('mit-nome').value.trim().toUpperCase();
+            const ind = document.getElementById('mit-ind').value.trim().toUpperCase(); const cap = document.getElementById('mit-cap').value.trim();
+            const citta = document.getElementById('mit-citta').value.trim().toUpperCase(); const prov = document.getElementById('mit-prov').value.trim().toUpperCase();
             const isDefault = document.getElementById('mit-def').checked;
 
             if(!nome || !ind || !citta) { window.showStatus("Nome, Indirizzo e Città sono obbligatori!"); return; }
 
             try {
-                if(isDefault) {
-                    for(let m of window.mittentiCloud) {
-                        if(m.isDefault && m.id !== id) await updateDoc(doc(db, 'artifacts', MASTER_ID, 'public', 'data', 'mittenti', m.id), { isDefault: false });
-                    }
-                }
+                if(isDefault) { for(let m of window.mittentiCloud) { if(m.isDefault && m.id !== id) await updateDoc(doc(db, 'artifacts', MASTER_ID, 'public', 'data', 'mittenti', m.id), { isDefault: false }); } }
                 const dataMit = { nome, indirizzo: ind, cap, citta, prov, isDefault, timestamp: Date.now() };
                 if(id) { await setDoc(doc(db, 'artifacts', MASTER_ID, 'public', 'data', 'mittenti', id), dataMit, { merge: true }); window.showStatus("Mittente aggiornato!"); } 
                 else { await addDoc(collection(db, 'artifacts', MASTER_ID, 'public', 'data', 'mittenti'), dataMit); window.showStatus("Nuovo mittente salvato!"); }
@@ -282,266 +191,213 @@
             } catch (err) { window.showStatus("Errore nel salvataggio"); }
         };
 
-        // --- NAVIGATION E RUBRICA CORRIERE ---
+        window.popolaLotti = (data) => {
+            const select = document.getElementById('select-lotti');
+            if (!select) return;
+            select.innerHTML = '<option value="">-- Seleziona Prodotto --</option>';
+            let list = [];
+            data.forEach(item => {
+                const name = item.name || item.nome || 'Prodotto';
+                if (item.lots) item.lots.forEach((l, i) => {
+                    let id = l.id || l.lotto || l.lot || '';
+                    if (id && (l.expiry || l.scadenza)) list.push({ name, lot: id, exp: l.expiry || l.scadenza, key: `${item.id}_${i}` });
+                });
+            });
+            list.sort((a,b) => a.name.localeCompare(b.name)).forEach(o => {
+                const opt = document.createElement('option');
+                opt.value = o.key; opt.setAttribute('data-n', o.name); opt.setAttribute('data-l', o.lot); opt.setAttribute('data-e', o.exp);
+                opt.textContent = `${o.name} (Lot: ${o.lot})`; select.appendChild(opt);
+            });
+        };
+
+        window.popolaRubrica = (data) => {
+            const select = document.getElementById('select-rubrica');
+            if (!select) return;
+            select.innerHTML = '<option value="">-- Seleziona Destinatario --</option>';
+            data.sort((a,b) => (a.nome || a.name || '').localeCompare(b.nome || b.name || '')).forEach(d => {
+                const opt = document.createElement('option'); opt.value = d.id; 
+                let locStr = `${d.citta || d.region || d.city || ''}`; if(d.prov || d.province) locStr += ` (${d.prov || d.province})`;
+                opt.textContent = `${d.nome || d.name || 'Senza Nome'} - ${locStr}`; select.appendChild(opt);
+            });
+        };
+
+        window.syncFields = () => {
+            const s = document.getElementById('select-lotti');
+            if (!s) return; const o = s.options[s.selectedIndex];
+            const ip = document.getElementById('i-p'); const il = document.getElementById('i-l'); const ie = document.getElementById('i-e');
+            if(o && o.value) { if (ip) ip.value = o.getAttribute('data-n') || ''; if (il) il.value = o.getAttribute('data-l') || ''; if (ie) ie.value = o.getAttribute('data-e') || ''; } 
+            else { if (ip) ip.value = ''; if (il) il.value = ''; if (ie) ie.value = ''; }
+        };
+
+        // --- NAVIGATION TABS ---
         window.openTab = (t) => {
             document.getElementById('dash-main').classList.add('hidden');
-            document.getElementById('tab-lotti').classList.add('hidden');
-            document.getElementById('tab-corriere').classList.add('hidden');
-            document.getElementById(`tab-${t}`).classList.remove('hidden');
+            ['lotti', 'corriere', 'inventario'].forEach(id => { const el = document.getElementById(`tab-${id}`); if (el) el.classList.add('hidden'); });
+            const tab = document.getElementById(`tab-${t}`); if (tab) tab.classList.remove('hidden');
             if (t === 'corriere') window.showCorriereSubTab('spedizione');
         };
 
         window.goHome = () => {
             document.getElementById('dash-main').classList.remove('hidden');
-            document.getElementById('tab-lotti').classList.add('hidden');
-            document.getElementById('tab-corriere').classList.add('hidden');
+            ['lotti', 'corriere', 'inventario'].forEach(id => { const el = document.getElementById(`tab-${id}`); if (el) el.classList.add('hidden'); });
         };
 
-        window.closePreview = () => { document.body.classList.remove('mode-preview', 'show-lotti', 'show-corriere'); };
+        window.closePreview = () => { document.body.classList.remove('mode-preview', 'show-lotti', 'show-corriere', 'show-inventory'); };
 
-        window.showCorriereSubTab = (sub) => {
-            document.getElementById('sub-tab-spedizione').classList.add('hidden');
-            document.getElementById('sub-tab-gestione').classList.add('hidden');
-            document.getElementById('sub-tab-mittente').classList.add('hidden');
-            document.getElementById(`sub-tab-${sub}`).classList.remove('hidden');
-            
-            const btnSped = document.getElementById('btn-sub-sped'); 
-            const btnGest = document.getElementById('btn-sub-gest');
-            const btnMit = document.getElementById('btn-sub-mit');
-            
-            btnSped.className = "px-4 py-4 text-sm font-bold border-b-2 border-transparent text-slate-400";
-            btnGest.className = "px-4 py-4 text-sm font-bold border-b-2 border-transparent text-slate-400";
-            btnMit.className = "px-4 py-4 text-sm font-bold border-b-2 border-transparent text-slate-400";
+        // --- ENGINE DI GENERAZIONE: INVENTARIO ---
+        window.viewInventario = (e) => {
+            e.preventDefault();
+            const catSelezionata = document.getElementById('select-cat-inv').value;
+            let itemsToPrint = window.lottiCloud;
+            if (catSelezionata !== 'ALL') itemsToPrint = itemsToPrint.filter(i => (i.category || 'Altre Categorie') === catSelezionata);
 
-            if(sub === 'spedizione') btnSped.className = "px-4 py-4 text-sm font-black border-b-2 border-blue-500 text-blue-600 transition-all";
-            else if(sub === 'gestione') { btnGest.className = "px-4 py-4 text-sm font-black border-b-2 border-blue-500 text-blue-600 transition-all"; window.renderRubricaList(); window.annullaModifica(); } 
-            else if(sub === 'mittente') { btnMit.className = "px-4 py-4 text-sm font-black border-b-2 border-blue-500 text-blue-600 transition-all"; window.nuovoMittente(); }
-        };
+            const container = document.getElementById('print-inventory-area');
+            const now = new Date(); const dateStr = now.toLocaleDateString('it-IT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }); const timeStr = now.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
 
-        window.syncRubrica = () => {
-            const id = document.getElementById('select-rubrica').value;
-            const d = window.rubricaCloud.find(x => x.id === id);
-            if(d) {
-                window.selectedContactId = id;
-                document.getElementById('c-n').value = d.nome || d.name || ''; document.getElementById('c-i').value = d.indirizzo || d.address || '';
-                document.getElementById('c-c').value = d.cap || d.zip || ''; document.getElementById('c-t').value = d.citta || d.city || d.region || '';
-                document.getElementById('c-r').value = d.prov || d.province || ''; document.getElementById('c-tel').value = d.telefono || d.phone || '';
-                document.getElementById('c-note').value = d.note || d.notes || '';
-            }
-        };
+            let totalPieces = 0; let lowStockCount = 0;
+            const grouped = itemsToPrint.reduce((acc, item) => { const c = item.category || 'Altre Categorie'; if (!acc[c]) acc[c] = []; acc[c].push(item); return acc; }, {});
 
-        // RENDER RUBRICA AGGIORNATO (STILE SCHEDE BIANCHE)
-        window.renderRubricaList = (filterText = '') => {
-            const container = document.getElementById('rubrica-list-container');
-            if(!container) return; container.innerHTML = '';
-            
-            const filtered = window.rubricaCloud.filter(c => {
-                const searchStr = `${c.nome||c.name||''} ${c.citta||c.region||''} ${c.telefono||c.phone||''}`.toLowerCase();
-                return searchStr.includes(filterText.toLowerCase());
-            });
-            
-            if(filtered.length === 0) {
-                container.innerHTML = '<div class="text-center py-8 text-slate-400 text-sm font-bold">Nessun cliente in archivio</div>';
-                return;
-            }
-            
-            filtered.forEach(c => {
-                const card = document.createElement('div');
-                card.className = "bg-white border border-slate-100 shadow-sm rounded-[1.25rem] p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 w-full box-border transition-all hover:shadow-md mb-3";
-                
-                // Gestione Parentesi Intelligente
-                let locStr = `${c.citta || c.region || c.city || ''}`;
-                if (c.prov || c.province) { locStr += ` (${c.prov || c.province})`; }
-                let addressLine = `${c.indirizzo || c.address || '-'}, ${locStr}`;
+            let tbodyHTML = '';
+            Object.keys(grouped).sort().forEach(category => {
+                tbodyHTML += `<tr><td colspan="5" class="bg-slate-100/70 text-slate-800 font-black py-3 px-4 text-[13px] uppercase tracking-widest border-y-2 border-slate-300 print-bg-keep">${category}</td></tr>`;
+                grouped[category].sort((a,b) => (a.name||'').localeCompare(b.name||'')).forEach(item => {
+                    const stock = parseInt(item.stock) || 0; const alert = parseInt(item.alertThreshold) || 10; const cSize = parseInt(item.cartonSize) || 10;
+                    const isLow = stock <= alert; if (isLow) lowStockCount++; totalPieces += stock;
+                    let lotsHTML = '-'; if(!item.hasNoLots && item.lots && item.lots.length > 0) lotsHTML = item.lots.map(l => `<b class="text-slate-800">${l.id||'S.L.'}</b>: ${l.qty}pz`).join(', ');
 
-                card.innerHTML = `
-                    <div class="flex-grow text-left w-full overflow-hidden">
-                        <div class="font-black text-slate-900 text-[15px] mb-1.5 uppercase truncate">${c.nome || c.name || 'SENZA NOME'}</div>
-                        <div class="text-xs text-slate-500 font-medium truncate"><i class="fa-solid fa-location-dot mr-1"></i> ${addressLine}</div>
-                    </div>
-                    <div class="flex flex-wrap gap-2 w-full md:w-auto justify-end flex-shrink-0">
-                        <button onclick="window.usaContatto('${c.id}')" class="bg-[#10b981] hover:bg-[#059669] text-white text-[11px] font-black px-4 py-2.5 rounded-xl flex items-center gap-1.5 transition-colors shadow-sm"><i class="fa-solid fa-truck"></i> USA</button>
-                        <button onclick="window.avviaModificaContatto('${c.id}')" class="bg-[#3b82f6] hover:bg-[#2563eb] text-white text-[11px] font-black px-4 py-2.5 rounded-xl flex items-center gap-1.5 transition-colors shadow-sm"><i class="fa-solid fa-pen"></i> MODIFICA</button>
-                        <button onclick="window.apriModalEliminazione('${c.id}', '${c.type}')" class="bg-[#f43f5e] hover:bg-[#e11d48] text-white text-[11px] font-black px-4 py-2.5 rounded-xl flex items-center gap-1.5 transition-colors shadow-sm"><i class="fa-solid fa-trash"></i> ELIMINA</button>
-                    </div>
-                `;
-                container.appendChild(card);
-            });
-        };
-
-        window.usaContatto = (id) => {
-            document.getElementById('select-rubrica').value = id; window.syncRubrica();
-            window.showStatus("Cliente pronto per la spedizione!"); window.showCorriereSubTab('spedizione');
-        };
-
-        // GESTIONE ELIMINAZIONE CONTATTO (MODAL)
-        window.apriModalEliminazione = (id, type) => {
-            window.contactToDeleteId = id;
-            window.contactToDeleteType = type;
-            document.getElementById('modal-conferma-eliminazione').classList.remove('hidden');
-        };
-
-        window.chiudiModalEliminazione = () => {
-            document.getElementById('modal-conferma-eliminazione').classList.add('hidden');
-            window.contactToDeleteId = null;
-            window.contactToDeleteType = null;
-        };
-
-        window.confermaEliminazione = async () => {
-            if(!window.contactToDeleteId) return;
-            const collectionName = window.contactToDeleteType === 'Congresso' ? 'congressi' : 'informatori';
-            
-            try {
-                await deleteDoc(doc(db, 'artifacts', MASTER_ID, 'public', 'data', collectionName, window.contactToDeleteId));
-                window.showStatus("Contatto eliminato con successo!");
-                window.chiudiModalEliminazione();
-                // La lista si aggiornerà in automatico grazie a onSnapshot
-            } catch (err) {
-                window.showStatus("Errore durante l'eliminazione");
-            }
-        };
-
-        // MODIFICA E AGGIUNTA
-        window.annullaModifica = () => {
-            const box = document.getElementById('rubrica-form-box');
-            if (box) box.classList.add('hidden');
-            window.editingContactId = null;
-        };
-
-        window.avviaNuovoContatto = () => {
-            window.editingContactId = null;
-            const title = document.getElementById('rubrica-form-title');
-            if (title) title.innerText = "Aggiungi Nuovo Contatto";
-            ['m-nome','m-tel','m-ind','m-cap','m-citta','m-prov','m-note'].forEach(id => {
-                const el = document.getElementById(id); if (el) el.value = '';
-            });
-            const box = document.getElementById('rubrica-form-box');
-            if (box) { box.classList.remove('hidden'); box.scrollIntoView({ behavior: 'smooth' }); }
-        };
-
-        window.avviaModificaContatto = (id) => {
-            window.editingContactId = id;
-            const title = document.getElementById('rubrica-form-title');
-            if (title) title.innerText = "Modifica Contatto";
-            const d = window.rubricaCloud.find(x => x.id === id);
-            if(d) {
-                const fields = {
-                    'm-nome': d.nome || d.name || '', 'm-tel': d.telefono || d.phone || '',
-                    'm-ind': d.indirizzo || d.address || '', 'm-cap': d.cap || d.zip || '',
-                    'm-citta': d.citta || d.city || d.region || '', 'm-prov': d.prov || d.province || '',
-                    'm-note': d.note || d.notes || ''
-                };
-                Object.keys(fields).forEach(key => {
-                    const el = document.getElementById(key); if (el) el.value = fields[key];
+                    tbodyHTML += `<tr class="border-b border-slate-200"><td class="py-3 px-4 font-bold text-slate-800 text-[13px] uppercase">${item.name || 'Sconosciuto'} ${isLow ? '<span class="ml-2 text-[9px] font-black tracking-wider text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-200 no-print-bg">SCORTA BASSA</span>' : ''}</td><td class="py-3 px-4 text-center font-black text-lg ${isLow ? 'text-red-600' : 'text-slate-900'}">${stock}</td><td class="py-3 px-4 text-center font-semibold text-slate-600 text-sm">${Math.floor(stock / cSize)} <span class="text-[10px] font-normal opacity-70 uppercase">Cart.</span></td><td class="py-3 px-4 text-center font-semibold text-slate-600 text-sm">${stock % cSize} <span class="text-[10px] font-normal opacity-70 uppercase">Pz</span></td><td class="py-3 px-4 text-[11px] text-slate-500 leading-tight">${lotsHTML}</td></tr>`;
                 });
-                const box = document.getElementById('rubrica-form-box');
-                if (box) { box.classList.remove('hidden'); box.scrollIntoView({ behavior: 'smooth' }); }
-            }
+            });
+
+            container.innerHTML = `<div class="bg-white p-12 max-w-5xl mx-auto shadow-xl border border-slate-100" style="min-height: 297mm; box-sizing: border-box;"><header class="flex justify-between items-end border-b-4 border-slate-900 pb-6 mb-8"><div><h1 class="text-4xl font-black text-slate-900 tracking-tight uppercase" style="font-family: 'Montserrat', sans-serif;">Distinta Magazzino</h1><p class="text-slate-500 font-medium text-lg mt-1"><i class="fa-solid fa-building text-blue-500 mr-2"></i>Clinnix S.r.l. ${catSelezionata !== 'ALL' ? ` <span class="mx-2">|</span> Tipologia: <strong class="text-slate-800 uppercase">${catSelezionata}</strong>` : ''}</p></div><div class="text-right"><p class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-1">Data Rilevamento</p><p class="text-lg font-black text-slate-800 capitalize">${dateStr}</p><p class="text-slate-500 font-medium text-sm">${timeStr}</p></div></header><div class="grid grid-cols-3 gap-6 mb-8"><div class="bg-slate-50 border border-slate-200 p-4 rounded-xl print-bg-keep"><p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Referenze Trovate</p><p class="text-2xl font-black text-slate-900">${itemsToPrint.length}</p></div><div class="bg-slate-50 border border-slate-200 p-4 rounded-xl print-bg-keep"><p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Pezzi Totali in Elenco</p><p class="text-2xl font-black text-blue-600">${totalPieces}</p></div><div class="bg-red-50 border border-red-100 p-4 rounded-xl print-bg-keep"><p class="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1">Allarmi Scorta Bassa</p><p class="text-2xl font-black text-red-600">${lowStockCount}</p></div></div><table class="inv-table w-full border-collapse text-left"><thead><tr><th class="w-2/5 p-4 bg-slate-900 text-white text-[11px] uppercase tracking-widest rounded-tl-lg">Prodotto / Articolo</th><th class="p-4 bg-slate-900 text-white text-[11px] uppercase tracking-widest text-center">Giacenza Tot.</th><th class="p-4 bg-slate-900 text-white text-[11px] uppercase tracking-widest text-center">Scatole</th><th class="p-4 bg-slate-900 text-white text-[11px] uppercase tracking-widest text-center">Sfusi</th><th class="p-4 bg-slate-900 text-white text-[11px] uppercase tracking-widest rounded-tr-lg">Dettaglio Lotti</th></tr></thead><tbody>${tbodyHTML}</tbody></table><div class="mt-16 pt-8 border-t border-slate-200 grid grid-cols-2 gap-20 opacity-80"><div class="text-center"><p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-8">Firma Operatore</p><div class="border-b border-slate-400 w-full"></div></div><div class="text-center"><p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-8">Firma Responsabile</p><div class="border-b border-slate-400 w-full"></div></div></div><p class="text-center text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-6">Generato automaticamente da Clinnix Print Station</p></div>`;
+
+            document.body.classList.remove('show-lotti', 'show-corriere'); document.body.classList.add('mode-preview', 'show-inventory');
         };
 
-        window.salvaContatto = async () => {
-            const nome = document.getElementById('m-nome').value.trim(); const tel = document.getElementById('m-tel').value.trim();
-            const ind = document.getElementById('m-ind').value.trim(); const cap = document.getElementById('m-cap').value.trim();
-            const citta = document.getElementById('m-citta').value.trim(); const prov = document.getElementById('m-prov').value.trim();
-            const note = document.getElementById('m-note').value.trim();
-
-            if(!nome || !ind || !citta) { window.showStatus("Nome, Indirizzo e Città sono obbligatori!"); return; }
-            const docData = {
-                name: nome.toUpperCase(), nome: nome.toUpperCase(),
-                address: ind.toUpperCase(), indirizzo: ind.toUpperCase(), zip: cap, cap: cap,
-                city: citta.toUpperCase(), citta: citta.toUpperCase(), province: prov.toUpperCase(), prov: prov.toUpperCase(),
-                phone: tel, telefono: tel, notes: note, note: note, timestamp: Date.now()
-            };
-            try {
-                if(window.editingContactId) {
-                    await setDoc(doc(db, 'artifacts', MASTER_ID, 'public', 'data', 'informatori', window.editingContactId), docData, { merge: true });
-                    window.showStatus("Cliente aggiornato!");
-                } else {
-                    await addDoc(collection(db, 'artifacts', MASTER_ID, 'public', 'data', 'informatori'), docData);
-                    window.showStatus("Nuovo cliente salvato!");
-                }
-                window.annullaModifica();
-            } catch (err) { window.showStatus("Errore nel salvataggio"); }
-        };
-
-        // --- ENGINE DI GENERAZIONE ---
+        // --- ENGINE DI GENERAZIONE: LOTTI (CON MISURE MILIMETRICHE ESATTE) ---
         window.viewLotti = (e) => {
             e.preventDefault();
-            const s = document.getElementById('select-lotti');
-            const o = s.options[s.selectedIndex];
+            const s = document.getElementById('select-lotti'); const o = s.options[s.selectedIndex];
             if(!o || !o.value) { alert("Seleziona prima un prodotto!"); return; }
 
             const name = o.getAttribute('data-n') || ''; const lot = o.getAttribute('data-l') || ''; const exp = o.getAttribute('data-e') || '';
             const q = parseInt(document.getElementById('f-q').value); const start = parseInt(document.getElementById('f-s').value);
             const cont = document.getElementById('grid-l'); cont.innerHTML = '';
 
+            // L'intestazione copre le celle logiche 1, 2, 11, 12.
             const head = document.createElement('div');
             head.className = 'etichetta-intestazione-unificata cell-fustellata';
             head.style.gridColumn = '1 / 3'; head.style.gridRow = '1 / 3';
-            head.innerHTML = `<div class="titolo-prodotto">${name}</div><div class="scadenza-info">LOTTO: ${lot} &nbsp;|&nbsp; SCAD: ${exp}</div>`;
+            head.innerHTML = `<div class="titolo-prodotto">${name}</div><div class="scadenza-info">L: ${lot} | S: ${exp}</div>`;
             cont.appendChild(head);
 
             let printedCount = 0;
             for(let i=1; i<=140; i++) {
+                // Salta le 4 celle coperte dall'intestazione grande
                 if (i === 1 || i === 2 || i === 11 || i === 12) continue;
-                const logicalRow = Math.ceil(i / 10); const logicalCol = ((i - 1) % 10) + 1;
+                
+                const logicalRow = Math.ceil(i / 10); 
+                const logicalCol = ((i - 1) % 10) + 1;
+                
+                // Mappatura colonna logica (1-10) a colonna CSS Grid reale (1-14, calcolando i gap ora da 2.5mm)
                 let gridColStart = logicalCol;
-                if (logicalCol > 2) gridColStart += 1; if (logicalCol > 4) gridColStart += 1; if (logicalCol > 6) gridColStart += 1; if (logicalCol > 8) gridColStart += 1;
+                if (logicalCol > 2) gridColStart += 1; // Salta il 1° gap
+                if (logicalCol > 4) gridColStart += 1; // Salta il 2° gap
+                if (logicalCol > 6) gridColStart += 1; // Salta il 3° gap
+                if (logicalCol > 8) gridColStart += 1; // Salta il 4° gap
 
                 const c = document.createElement('div');
-                c.className = 'cell cell-fustellata'; c.style.gridColumn = `${gridColStart} / ${gridColStart + 1}`; c.style.gridRow = `${logicalRow} / ${logicalRow + 1}`;
+                c.className = 'cell cell-fustellata'; 
+                c.style.gridColumn = `${gridColStart} / ${gridColStart + 1}`; 
+                c.style.gridRow = `${logicalRow} / ${logicalRow + 1}`;
+                
                 if(i >= start && printedCount < q) {
-                    c.innerHTML = `<p class="t-label">Lotto:</p><p class="t-val">${lot}</p><p class="t-label">Scade il</p><p class="t-val">${exp}</p>`;
+                    c.innerHTML = `
+                        <span class="l-lbl">Lotto</span>
+                        <span class="l-val">${lot}</span>
+                        <span class="l-lbl">Scad</span>
+                        <span class="l-val">${exp}</span>
+                    `;
                     printedCount++;
                 }
                 cont.appendChild(c);
             }
-            document.body.classList.remove('show-corriere'); document.body.classList.add('mode-preview', 'show-lotti');
+            document.body.classList.remove('show-corriere', 'show-inventory'); document.body.classList.add('mode-preview', 'show-lotti');
         };
 
+        // --- ENGINE DI GENERAZIONE: CORRIERE ---
         window.viewCorriere = (e) => {
             e.preventDefault();
-            document.getElementById('p-n').innerText = document.getElementById('c-n').value.toUpperCase();
-            document.getElementById('p-i').innerText = document.getElementById('c-i').value.toUpperCase();
-            
-            const cap = document.getElementById('c-c').value;
-            const citta = document.getElementById('c-t').value.toUpperCase();
-            const prov = document.getElementById('c-r').value.toUpperCase();
-            
-            // Logica senza parentesi vuote
-            let locationString = `${cap} - ${citta}`;
-            if(prov) { locationString += ` (${prov})`; }
+            document.getElementById('p-n').innerText = document.getElementById('c-n').value.toUpperCase(); document.getElementById('p-i').innerText = document.getElementById('c-i').value.toUpperCase();
+            const cap = document.getElementById('c-c').value; const citta = document.getElementById('c-t').value.toUpperCase(); const prov = document.getElementById('c-r').value.toUpperCase();
+            let locationString = `${cap} - ${citta}`; if(prov) locationString += ` (${prov})`;
             document.getElementById('p-loc-string').innerText = locationString;
             
-            const tel = document.getElementById('c-tel').value;
-            const note = document.getElementById('c-note').value;
+            const tel = document.getElementById('c-tel').value; const note = document.getElementById('c-note').value;
             if(tel) { document.getElementById('p-tel-box').classList.remove('hidden'); document.getElementById('p-tel').innerText = tel; } else document.getElementById('p-tel-box').classList.add('hidden');
             if(note) { document.getElementById('p-note-box').classList.remove('hidden'); document.getElementById('p-note').innerText = note; } else document.getElementById('p-note-box').classList.add('hidden');
 
             if (typeof JsBarcode === 'function') JsBarcode("#p-b", "CLX" + Date.now(), { format: "CODE128", width: 2.2, height: 70, displayValue: true, fontSize: 14, fontOptions: "bold" });
-            document.body.classList.remove('show-lotti'); document.body.classList.add('mode-preview', 'show-corriere');
+            document.body.classList.remove('show-lotti', 'show-inventory'); document.body.classList.add('mode-preview', 'show-corriere');
         };
 
+        window.showCorriereSubTab = (sub) => {
+            document.getElementById('sub-tab-spedizione').classList.add('hidden'); document.getElementById('sub-tab-gestione').classList.add('hidden'); document.getElementById('sub-tab-mittente').classList.add('hidden');
+            document.getElementById(`sub-tab-${sub}`).classList.remove('hidden');
+            const btnSped = document.getElementById('btn-sub-sped'); const btnGest = document.getElementById('btn-sub-gest'); const btnMit = document.getElementById('btn-sub-mit');
+            btnSped.className = "px-4 py-4 text-sm font-bold border-b-2 border-transparent text-slate-400"; btnGest.className = "px-4 py-4 text-sm font-bold border-b-2 border-transparent text-slate-400"; btnMit.className = "px-4 py-4 text-sm font-bold border-b-2 border-transparent text-slate-400";
+            if(sub === 'spedizione') btnSped.className = "px-4 py-4 text-sm font-black border-b-2 border-blue-500 text-blue-600 transition-all";
+            else if(sub === 'gestione') { btnGest.className = "px-4 py-4 text-sm font-black border-b-2 border-blue-500 text-blue-600 transition-all"; window.renderRubricaList(); window.annullaModifica(); } 
+            else if(sub === 'mittente') { btnMit.className = "px-4 py-4 text-sm font-black border-b-2 border-blue-500 text-blue-600 transition-all"; }
+        };
+
+        window.syncRubrica = () => {
+            const id = document.getElementById('select-rubrica').value; const d = window.rubricaCloud.find(x => x.id === id);
+            if(d) {
+                window.selectedContactId = id; document.getElementById('c-n').value = d.nome || d.name || ''; document.getElementById('c-i').value = d.indirizzo || d.address || '';
+                document.getElementById('c-c').value = d.cap || d.zip || ''; document.getElementById('c-t').value = d.citta || d.city || d.region || '';
+                document.getElementById('c-r').value = d.prov || d.province || ''; document.getElementById('c-tel').value = d.telefono || d.phone || ''; document.getElementById('c-note').value = d.note || d.notes || '';
+            }
+        };
+
+        window.renderRubricaList = (filterText = '') => {
+            const container = document.getElementById('rubrica-list-container'); if(!container) return; container.innerHTML = '';
+            const filtered = window.rubricaCloud.filter(c => `${c.nome||c.name||''} ${c.citta||c.region||''} ${c.telefono||c.phone||''}`.toLowerCase().includes(filterText.toLowerCase()));
+            if(filtered.length === 0) { container.innerHTML = '<div class="text-center py-8 text-slate-400 text-sm font-bold">Nessun cliente in archivio</div>'; return; }
+            filtered.forEach(c => {
+                const card = document.createElement('div'); card.className = "bg-white border border-slate-100 shadow-sm rounded-[1.25rem] p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 w-full box-border transition-all hover:shadow-md mb-3";
+                let locStr = `${c.citta || c.region || c.city || ''}`; if (c.prov || c.province) locStr += ` (${c.prov || c.province})`;
+                card.innerHTML = `<div class="flex-grow text-left w-full overflow-hidden"><div class="font-black text-slate-900 text-[15px] mb-1.5 uppercase truncate">${c.nome || c.name || 'SENZA NOME'}</div><div class="text-xs text-slate-500 font-medium truncate"><i class="fa-solid fa-location-dot mr-1"></i> ${c.indirizzo || c.address || '-'}, ${locStr}</div></div><div class="flex flex-wrap gap-2 w-full md:w-auto justify-end flex-shrink-0"><button onclick="window.usaContatto('${c.id}')" class="bg-[#10b981] hover:bg-[#059669] text-white text-[11px] font-black px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow-sm"><i class="fa-solid fa-truck"></i> USA</button><button onclick="window.avviaModificaContatto('${c.id}')" class="bg-[#3b82f6] text-white text-[11px] font-black px-4 py-2.5 rounded-xl shadow-sm"><i class="fa-solid fa-pen"></i></button><button onclick="window.apriModalEliminazione('${c.id}', '${c.type}')" class="bg-[#f43f5e] text-white text-[11px] font-black px-4 py-2.5 rounded-xl shadow-sm"><i class="fa-solid fa-trash"></i></button></div>`;
+                container.appendChild(card);
+            });
+        };
+
+        window.usaContatto = (id) => { document.getElementById('select-rubrica').value = id; window.syncRubrica(); window.showStatus("Cliente pronto!"); window.showCorriereSubTab('spedizione'); };
+        window.annullaModifica = () => { const box = document.getElementById('rubrica-form-box'); if (box) box.classList.add('hidden'); window.editingContactId = null; };
+        
+        window.apriModalEliminazione = (id, type) => { window.contactToDeleteId = id; window.contactToDeleteType = type; document.getElementById('modal-conferma-eliminazione').classList.remove('hidden'); };
+        window.chiudiModalEliminazione = () => { document.getElementById('modal-conferma-eliminazione').classList.add('hidden'); window.contactToDeleteId = null; window.contactToDeleteType = null; };
+        window.confermaEliminazione = async () => { if(!window.contactToDeleteId) return; const collectionName = window.contactToDeleteType === 'Congresso' ? 'congressi' : 'informatori'; try { await deleteDoc(doc(db, 'artifacts', MASTER_ID, 'public', 'data', collectionName, window.contactToDeleteId)); window.showStatus("Eliminato!"); window.chiudiModalEliminazione(); } catch(err){} };
+
+        window.avviaNuovoContatto = () => { window.editingContactId = null; document.getElementById('rubrica-form-title').innerText = "Nuovo Contatto"; ['m-nome','m-tel','m-ind','m-cap','m-citta','m-prov','m-note'].forEach(id => { document.getElementById(id).value = ''; }); document.getElementById('rubrica-form-box').classList.remove('hidden'); document.getElementById('rubrica-form-box').scrollIntoView(); };
+        window.avviaModificaContatto = (id) => { window.editingContactId = id; document.getElementById('rubrica-form-title').innerText = "Modifica Contatto"; const d = window.rubricaCloud.find(x => x.id === id); if(d) { document.getElementById('m-nome').value = d.nome||d.name||''; document.getElementById('m-tel').value = d.telefono||d.phone||''; document.getElementById('m-ind').value = d.indirizzo||d.address||''; document.getElementById('m-cap').value = d.cap||d.zip||''; document.getElementById('m-citta').value = d.citta||d.city||d.region||''; document.getElementById('m-prov').value = d.prov||d.province||''; document.getElementById('m-note').value = d.note||d.notes||''; document.getElementById('rubrica-form-box').classList.remove('hidden'); document.getElementById('rubrica-form-box').scrollIntoView(); } };
+
+        window.salvaContatto = async () => {
+            const nome = document.getElementById('m-nome').value.trim(); const ind = document.getElementById('m-ind').value.trim(); const citta = document.getElementById('m-citta').value.trim();
+            if(!nome || !ind || !citta) { window.showStatus("Nome, Indirizzo e Città obbligatori!"); return; }
+            const docData = { name: nome.toUpperCase(), nome: nome.toUpperCase(), address: ind.toUpperCase(), indirizzo: ind.toUpperCase(), zip: document.getElementById('m-cap').value, cap: document.getElementById('m-cap').value, city: citta.toUpperCase(), citta: citta.toUpperCase(), province: document.getElementById('m-prov').value.toUpperCase(), prov: document.getElementById('m-prov').value.toUpperCase(), phone: document.getElementById('m-tel').value, telefono: document.getElementById('m-tel').value, notes: document.getElementById('m-note').value, note: document.getElementById('m-note').value, timestamp: Date.now() };
+            if(window.editingContactId) { await setDoc(doc(db, 'artifacts', MASTER_ID, 'public', 'data', 'informatori', window.editingContactId), docData, { merge: true }); window.showStatus("Aggiornato!"); } else { await addDoc(collection(db, 'artifacts', MASTER_ID, 'public', 'data', 'informatori'), docData); window.showStatus("Salvato!"); }
+            window.annullaModifica();
+        };
+
+        // Aggancio Firebase
         onAuthStateChanged(auth, async (u) => {
             if(u) {
                 window.updateSync('on');
-                unsubMittenti = onSnapshot(collection(db, 'artifacts', MASTER_ID, 'public', 'data', 'mittenti'), (s) => {
-                    window.mittentiCloud = s.docs.map(d => ({ id: d.id, ...d.data() })); window.popolaSelectMittenti();
-                    if(window.mittentiCloud.length > 0) {
-                        const defaultMit = window.mittentiCloud.find(x => x.isDefault) || window.mittentiCloud[0];
-                        if (!window.mittenteAttivo || !window.mittentiCloud.find(x => x.id === window.mittenteAttivo.id)) {
-                            window.mittenteAttivo = defaultMit; const s2 = document.getElementById('spedizione-seleziona-mittente'); if(s2) s2.value = defaultMit.id; window.aggiornaLabelMittente();
-                        }
-                    } else { window.mittenteAttivo = { nome: "CLINNIX S.R.L.", indirizzo: "VIA DEL LAVORO, 10", cap: "80100", citta: "NAPOLI", prov: "NA" }; window.aggiornaLabelMittente(); }
-                });
-                unsubLotti = onSnapshot(collection(db, 'artifacts', MASTER_ID, 'public', 'data', 'items'), (s) => {
-                    const cloudItems = s.docs.map(d => ({ id: d.id, ...d.data() }));
-                    if (cloudItems.length > 0) { window.lottiCloud = cloudItems; window.popolaLotti(window.lottiCloud); }
-                });
-
+                unsubMittenti = onSnapshot(collection(db, 'artifacts', MASTER_ID, 'public', 'data', 'mittenti'), (s) => { window.mittentiCloud = s.docs.map(d => ({ id: d.id, ...d.data() })); window.popolaSelectMittenti(); });
+                unsubLotti = onSnapshot(collection(db, 'artifacts', MASTER_ID, 'public', 'data', 'items'), (s) => { const cloudItems = s.docs.map(d => ({ id: d.id, ...d.data() })); if (cloudItems.length > 0) { window.lottiCloud = cloudItems; window.popolaLotti(window.lottiCloud); window.popolaCategorieInv(window.lottiCloud); } });
                 let localInformatori = []; let localCongressi = [];
                 const updateRubricaGlobale = () => { window.rubricaCloud = [...localInformatori, ...localCongressi]; window.popolaRubrica(window.rubricaCloud); window.renderRubricaList(); };
-
                 unsubInformatori = onSnapshot(collection(db, 'artifacts', MASTER_ID, 'public', 'data', 'informatori'), (s) => { localInformatori = s.docs.map(d => ({ id: d.id, type: 'Informatore', ...d.data() })); updateRubricaGlobale(); });
                 unsubCongressi = onSnapshot(collection(db, 'artifacts', MASTER_ID, 'public', 'data', 'congressi'), (s) => { localCongressi = s.docs.map(d => ({ id: d.id, type: 'Congresso', ...d.data() })); updateRubricaGlobale(); });
             }
@@ -550,11 +406,11 @@
     </script>
 
     <style>
-        :root { --brand: #002d5a; --secondary: #007bff; --bg: #f8fafc; --page-pad-top: 10mm; --page-pad-left: 5mm; }
-        body { background-color: var(--bg); font-family: 'Inter', sans-serif; }
+        :root { --brand: #002d5a; --secondary: #007bff; --bg: #f8fafc; }
+        body { background-color: var(--bg); font-family: 'Inter', sans-serif; margin: 0; padding: 0;}
         header { background-color: var(--brand); color: white; height: 64px; display: flex; align-items: center; padding: 0 24px; justify-content: space-between; }
         .logo-text { font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 1.25rem; }
-        .dash-card { background: white; border-radius: 20px; padding: 32px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); text-align: left; }
+        .dash-card { background: white; border-radius: 20px; padding: 32px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); text-align: left; height: 100%; display: flex; flex-direction: column; }
         .f-input { width: 100%; background: #f8fafc; border: 2px solid #edf2f7; border-radius: 14px; padding: 12px 16px; font-weight: 600; font-size: 0.9rem; outline: none; transition: border-color 0.2s; }
         .f-input:focus { border-color: var(--secondary); background: white; }
 
@@ -562,28 +418,75 @@
         body.mode-preview #preview-bar { display: flex; }
         body.mode-preview header, body.mode-preview main { display: none !important; }
 
-        #print-lotti-area, #print-corriere-area { display: none !important; }
-        body.show-lotti #print-lotti-area { display: block !important; margin: 90px auto; box-shadow: 0 0 50px rgba(0,0,0,0.4); }
+        #print-lotti-area, #print-corriere-area, #print-inventory-area { display: none !important; }
+        
         body.show-corriere #print-corriere-area { display: flex !important; flex-direction: column; justify-content: space-between; background: white; width: 148mm; height: 210mm; margin: 90px auto; padding: 16mm; border: 4px solid #000; box-shadow: 0 0 50px rgba(0,0,0,0.4); box-sizing: border-box; }
+        body.show-inventory #print-inventory-area { display: block !important; margin: 90px auto; padding: 0 10px; }
 
-        #print-lotti-area { width: 210mm; height: 297mm; background: white; box-sizing: border-box; padding: var(--page-pad-top) var(--page-pad-left); }
-        .grid-labels { display: grid; grid-template-columns: 1fr 1fr 2mm 1fr 1fr 2mm 1fr 1fr 2mm 1fr 1fr 2mm 1fr 1fr; grid-template-rows: repeat(14, 1fr); width: 100%; height: 100%; box-sizing: border-box; gap: 0; }
-        .cell-fustellata { background-color: #fafafa; border: 0.5px solid #e2e8f0; border-radius: 2px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        .cell { text-align: center; font-family: 'Times New Roman', serif; padding: 0.5mm; }
-        .cell p { margin: 0; color: black; line-height: 1.1; }
-        .t-label { font-size: 8pt; color: #64748b; text-transform: uppercase; font-weight: 700; }
-        .t-val { font-size: 11pt; font-weight: 900; margin-bottom: 1.5mm; color: #0f172a; }
-        .etichetta-intestazione-unificata { font-family: 'Montserrat', sans-serif; color: #002d5a; text-transform: uppercase; text-align: center; padding: 2mm; }
-        .etichetta-intestazione-unificata .titolo-prodotto { font-weight: 800; font-size: 14pt; line-height: 1.1; }
-        .etichetta-intestazione-unificata .scadenza-info { font-weight: 700; font-size: 8pt; margin-top: 1mm; }
+        /* --- CONFIGURAZIONE MILLIMETRICA LOTTI --- */
+        body.show-lotti #print-lotti-area { display: block !important; margin: 90px auto; box-shadow: 0 0 50px rgba(0,0,0,0.4); }
+        
+        #print-lotti-area { 
+            width: 210mm; 
+            height: 297mm; 
+            background: white; 
+            box-sizing: border-box; 
+            /* Margine dall'alto: 1cm | Margine dal basso: 1cm | Margine da sinistra: 0,5cm | Margine da destra: 0,5cm */
+            padding-top: 10mm; 
+            padding-bottom: 10mm;
+            padding-left: 5mm; 
+            padding-right: 5mm;
+        }
+
+        .grid-labels { 
+            display: grid; 
+            /* Larghezza etichetta: 19mm. Spazio: 2.5mm. (19*10) + (2.5*4) = 190 + 10 = 200mm esatti al centro del foglio. */
+            grid-template-columns: 19mm 19mm 2.5mm 19mm 19mm 2.5mm 19mm 19mm 2.5mm 19mm 19mm 2.5mm 19mm 19mm; 
+            
+            /* Altezza foglio utile: 297 - 10(top) - 10(bottom) = 277mm. Diviso 14 righe = 19.785mm. */
+            grid-template-rows: repeat(14, 19.785mm); 
+            row-gap: 0;
+            column-gap: 0;
+            box-sizing: border-box; 
+        }
+
+        .cell-fustellata { 
+            /* box-sizing border-box assicura che il bordo non sfalsi la griglia di calcolo */
+            border: 0.5px solid #cbd5e1; 
+            box-sizing: border-box; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center; 
+            overflow: hidden; 
+        }
+
+        /* Dimensioni e Font per le etichette per garantire leggibilità in 19x19mm */
+        .cell { text-align: center; font-family: 'Inter', sans-serif; }
+        .l-lbl { font-size: 5pt; color: #64748b; font-weight: 700; text-transform: uppercase; line-height: 1; }
+        .l-val { font-size: 8pt; color: #0f172a; font-weight: 900; line-height: 1; margin-bottom: 0.5mm; margin-top: 0.5mm;}
+
+        /* Intestazione grande (unione di 4 celle) */
+        .etichetta-intestazione-unificata { font-family: 'Montserrat', sans-serif; color: #002d5a; text-transform: uppercase; text-align: center; }
+        .etichetta-intestazione-unificata .titolo-prodotto { font-weight: 900; font-size: 11pt; line-height: 1; margin-bottom: 2mm; width: 100%; word-wrap: break-word;}
+        .etichetta-intestazione-unificata .scadenza-info { font-weight: 700; font-size: 6pt; color: #334155; }
 
         @media print {
-            .no-print, #preview-bar, header, main, #modal-nuovo-lotto, #modal-conferma-eliminazione { display: none !important; }
+            .no-print, #preview-bar, header, main, #modal-conferma-eliminazione { display: none !important; }
             @page { margin: 0; size: A4; }
             html, body { display: block !important; margin: 0 !important; padding: 0 !important; background: white !important; }
-            #print-lotti-area, #print-corriere-area { display: none !important; }
+            #print-lotti-area, #print-corriere-area, #print-inventory-area { display: none !important; }
+            
             body.show-lotti #print-lotti-area { display: block !important; margin: 0 !important; width: 210mm !important; height: 297mm !important; box-sizing: border-box !important; }
             body.show-corriere #print-corriere-area { display: flex !important; margin: 0 auto !important; width: 148mm !important; height: 210mm !important; border: none !important; padding: 16mm !important; }
+            body.show-inventory #print-inventory-area { display: block !important; margin: 0 !important; padding: 0 !important; width: 100% !important; }
+            
+            .inv-table th { background-color: #f1f5f9 !important; color: #0f172a !important; border-bottom: 2px solid #cbd5e1; }
+            .print-bg-keep { background-color: #f8fafc !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .no-print-bg { background-color: transparent !important; border: none !important; padding: 0 !important; }
+            tr { page-break-inside: avoid; }
+            
+            /* Rimuoviamo il bordo guida grigio in fase di stampa per non stampare le linee sulla fustella */
             .cell-fustellata { background-color: transparent !important; border: none !important; }
         }
     </style>
@@ -610,17 +513,22 @@
 
     <main class="no-print max-w-6xl mx-auto px-4 py-8 text-center">
         <div id="dash-main">
-            <h2 class="text-3xl font-black text-slate-800 mb-8">Modulo di Stampa</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-                <button onclick="window.openTab('lotti')" class="dash-card group hover:border-emerald-500 transition-all">
-                    <div class="w-14 h-14 bg-emerald-50 text-emerald-500 group-hover:bg-emerald-500 group-hover:text-white rounded-xl flex items-center justify-center text-xl mb-4"><i class="fa-solid fa-tags"></i></div>
-                    <h3 class="text-xl font-black text-slate-800 mb-2">Stampa Etichette Lotti</h3>
-                    <p class="text-slate-500 text-xs">Foglio fustellato accoppiato a gruppi di 2 colonne con spazi intermedi.</p>
+            <h2 class="text-3xl font-black text-slate-800 mb-8">Hub di Stampa Centralizzato</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+                <button onclick="window.openTab('lotti')" class="dash-card group hover:border-emerald-500 transition-all border-2 border-transparent">
+                    <div class="w-14 h-14 bg-emerald-50 text-emerald-500 group-hover:bg-emerald-500 group-hover:text-white rounded-xl flex items-center justify-center text-xl mb-4 transition-colors"><i class="fa-solid fa-tags"></i></div>
+                    <h3 class="text-xl font-black text-slate-800 mb-2">Etichette Lotti</h3>
+                    <p class="text-slate-500 text-xs">Foglio fustellato 10x13 per l'etichettatura manuale dei prodotti.</p>
                 </button>
-                <button onclick="window.openTab('corriere')" class="dash-card group hover:border-blue-500 transition-all">
-                    <div class="w-14 h-14 bg-blue-50 text-blue-500 group-hover:bg-blue-500 group-hover:text-white rounded-xl flex items-center justify-center text-xl mb-4"><i class="fa-solid fa-truck-fast"></i></div>
-                    <h3 class="text-xl font-black text-slate-800 mb-2">Stampa Lettera Vettura</h3>
-                    <p class="text-slate-500 text-xs">Etichetta corriere gigante con rubrica clienti incorporata.</p>
+                <button onclick="window.openTab('corriere')" class="dash-card group hover:border-blue-500 transition-all border-2 border-transparent">
+                    <div class="w-14 h-14 bg-blue-50 text-blue-500 group-hover:bg-blue-500 group-hover:text-white rounded-xl flex items-center justify-center text-xl mb-4 transition-colors"><i class="fa-solid fa-truck-fast"></i></div>
+                    <h3 class="text-xl font-black text-slate-800 mb-2">Lettera Vettura</h3>
+                    <p class="text-slate-500 text-xs">Etichetta per corrieri con rubrica informatori e congressi incorporata.</p>
+                </button>
+                <button onclick="window.openTab('inventario')" class="dash-card group hover:border-slate-800 transition-all border-2 border-transparent">
+                    <div class="w-14 h-14 bg-slate-100 text-slate-700 group-hover:bg-slate-800 group-hover:text-white rounded-xl flex items-center justify-center text-xl mb-4 transition-colors"><i class="fa-solid fa-list-check"></i></div>
+                    <h3 class="text-xl font-black text-slate-800 mb-2">Distinta Inventario</h3>
+                    <p class="text-slate-500 text-xs">Stampa elenco giacenze in formato A4. Filtrabile per tipologia.</p>
                 </button>
             </div>
         </div>
@@ -629,37 +537,51 @@
         <div id="tab-lotti" class="hidden max-w-xl mx-auto">
             <div class="bg-white rounded-[2rem] shadow-2xl overflow-hidden text-left border border-slate-100">
                 <div class="bg-[#111827] px-8 py-8 text-white relative">
-                    <h2 class="font-black text-3xl">Stampa lotti e scadenza</h2>
-                    <div class="text-emerald-400 text-xs font-bold tracking-[0.2em] mt-2 uppercase">Allineamento 10x13</div>
-                    <button onclick="window.goHome()" class="absolute top-8 right-8 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors">
-                        <i class="fa-solid fa-xmark text-xl"></i>
-                    </button>
+                    <h2 class="font-black text-3xl">Etichette Lotti</h2>
+                    <div class="text-emerald-400 text-xs font-bold tracking-[0.2em] mt-2 uppercase">Margini A4 (Sopra/Sotto 1cm - Laterale 0.5cm)</div>
+                    <button onclick="window.goHome()" class="absolute top-8 right-8 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center"><i class="fa-solid fa-xmark text-xl"></i></button>
                 </div>
                 <div class="p-8">
                     <form onsubmit="window.viewLotti(event)" class="space-y-6">
                         <div>
                             <div class="flex justify-between items-center mb-3">
                                 <label class="text-xs font-black text-slate-500 uppercase tracking-widest">Prodotto</label>
-                                <button type="button" onclick="window.openNuovoLottoModal()" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-600 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wide transition-colors flex items-center gap-1">
-                                    <i class="fa-solid fa-plus"></i> Nuovo Prodotto/Lotto
-                                </button>
+                                <button type="button" onclick="window.openNuovoLottoModal()" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-600 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wide transition-colors flex items-center gap-1"><i class="fa-solid fa-plus"></i> Nuovo Prodotto/Lotto</button>
                             </div>
-                            <select id="select-lotti" onchange="window.syncFields()" class="w-full bg-[#f8fafc] border-2 border-slate-100 p-4 rounded-2xl font-bold text-slate-700 outline-none focus:border-blue-500 transition-colors">
-                                <option value="">-- Seleziona Prodotto --</option>
-                            </select>
+                            <select id="select-lotti" onchange="window.syncFields()" class="w-full bg-[#f8fafc] border-2 border-slate-100 p-4 rounded-2xl font-bold text-slate-700 outline-none focus:border-emerald-500"><option value="">-- Seleziona Prodotto --</option></select>
                         </div>
                         <div class="grid grid-cols-2 gap-4">
-                            <div><label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Prodotto Selezionato</label><input type="text" id="i-p" readonly class="w-full bg-[#f8fafc] border-2 border-slate-100 p-4 rounded-2xl font-bold text-slate-500 outline-none"></div>
-                            <div><label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Lotto Attivo</label><input type="text" id="i-l" readonly class="w-full bg-[#f8fafc] border-2 border-slate-100 p-4 rounded-2xl font-bold text-slate-500 outline-none"></div>
+                            <div><label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Prodotto Selezionato</label><input type="text" id="i-p" readonly class="w-full bg-[#f8fafc] border-2 border-slate-100 p-4 rounded-2xl font-bold text-slate-500"></div>
+                            <div><label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Lotto Attivo</label><input type="text" id="i-l" readonly class="w-full bg-[#f8fafc] border-2 border-slate-100 p-4 rounded-2xl font-bold text-slate-500"></div>
                         </div>
-                        <div><label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Scadenza</label><input type="text" id="i-e" readonly class="w-full bg-[#f8fafc] border-2 border-slate-100 p-4 rounded-2xl font-bold text-slate-500 outline-none"></div>
+                        <div><label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Scadenza</label><input type="text" id="i-e" readonly class="w-full bg-[#f8fafc] border-2 border-slate-100 p-4 rounded-2xl font-bold text-slate-500"></div>
                         <div class="bg-[#f8fafc] border-2 border-slate-100 p-6 rounded-[1.5rem]">
                             <div class="grid grid-cols-2 gap-6">
-                                <div><label class="text-xs font-black text-blue-600 uppercase tracking-widest mb-3 block">Quantità Etichette</label><input type="number" id="f-q" value="126" max="136" class="w-full bg-white border-2 border-slate-100 p-4 rounded-2xl font-black text-lg outline-none focus:border-blue-500 transition-colors text-slate-800"></div>
-                                <div><label class="text-xs font-black text-blue-600 uppercase tracking-widest mb-3 block">Inizia alla Cella N°</label><input type="number" id="f-s" value="5" min="5" class="w-full bg-white border-2 border-slate-100 p-4 rounded-2xl font-black text-lg outline-none focus:border-blue-500 transition-colors text-slate-800"><span class="text-[9px] font-black text-blue-500 mt-3 block uppercase tracking-widest">Celle 1-4 riservate all'intestazione</span></div>
+                                <div><label class="text-xs font-black text-blue-600 uppercase tracking-widest mb-3 block">Quantità Etichette</label><input type="number" id="f-q" value="126" max="136" class="w-full bg-white border-2 border-slate-100 p-4 rounded-2xl font-black text-lg outline-none focus:border-blue-500"></div>
+                                <div><label class="text-xs font-black text-blue-600 uppercase tracking-widest mb-3 block">Inizia alla Cella N°</label><input type="number" id="f-s" value="5" min="5" class="w-full bg-white border-2 border-slate-100 p-4 rounded-2xl font-black text-lg outline-none focus:border-blue-500"><p class="text-[9px] text-blue-500 font-bold mt-2 uppercase tracking-wide">Celle 1-4 riservate all'intestazione</p></div>
                             </div>
                         </div>
-                        <button type="submit" class="w-full bg-[#059669] hover:bg-[#047857] text-white font-black text-xl py-5 rounded-2xl shadow-lg transition-transform active:scale-95 tracking-wide mt-2">GENERA ANTEPRIMA</button>
+                        <button type="submit" class="w-full bg-[#059669] hover:bg-[#047857] text-white font-black text-xl py-5 rounded-2xl shadow-lg transition-transform active:scale-95">GENERA ANTEPRIMA</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB INVENTARIO -->
+        <div id="tab-inventario" class="hidden max-w-xl mx-auto">
+            <div class="bg-white rounded-[2rem] shadow-2xl overflow-hidden text-left border border-slate-100">
+                <div class="bg-slate-800 px-8 py-8 text-white relative">
+                    <h2 class="font-black text-3xl">Stampa Inventario</h2>
+                    <div class="text-slate-300 text-xs font-bold tracking-[0.2em] mt-2 uppercase">Distinta Magazzino A4</div>
+                    <button onclick="window.goHome()" class="absolute top-8 right-8 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors"><i class="fa-solid fa-xmark text-xl"></i></button>
+                </div>
+                <div class="p-8">
+                    <form onsubmit="window.viewInventario(event)" class="space-y-6">
+                        <div>
+                            <label class="text-xs font-black text-slate-500 uppercase tracking-widest mb-3 block">Scegli la Tipologia da Stampare</label>
+                            <select id="select-cat-inv" class="w-full bg-[#f8fafc] border-2 border-slate-100 p-4 rounded-2xl font-bold text-slate-700 outline-none focus:border-slate-800 transition-colors"><option value="ALL">Tutte le Tipologie</option></select>
+                        </div>
+                        <button type="submit" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-black text-xl py-5 rounded-2xl shadow-lg transition-transform active:scale-95">GENERA DISTINTA</button>
                     </form>
                 </div>
             </div>
@@ -670,103 +592,55 @@
             <div class="bg-white rounded-[2rem] shadow-2xl overflow-hidden text-left">
                 <div class="bg-[#2563eb] p-8 text-white relative">
                     <h2 class="font-black text-3xl mb-1">Modulo Corriere</h2>
-                    <p class="text-blue-200 text-xs font-bold tracking-[0.2em] uppercase">Spedizioni e Rubrica</p>
-                    <button onclick="window.goHome()" class="absolute top-8 right-8 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors">
-                        <i class="fa-solid fa-xmark text-xl"></i>
-                    </button>
+                    <div class="text-blue-200 text-xs font-bold tracking-[0.2em] mt-2 uppercase">Spedizioni e Rubrica</div>
+                    <button onclick="window.goHome()" class="absolute top-8 right-8 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center"><i class="fa-solid fa-xmark text-xl"></i></button>
                 </div>
                 
                 <div class="flex border-b border-slate-100 bg-white px-8 pt-2">
-                    <button id="btn-sub-sped" onclick="window.showCorriereSubTab('spedizione')" class="px-4 py-4 text-sm font-black border-b-2 border-blue-500 text-blue-600 transition-all">Nuova Spedizione</button>
-                    <button id="btn-sub-gest" onclick="window.showCorriereSubTab('gestione')" class="px-4 py-4 text-sm font-bold border-b-2 border-transparent text-slate-400 transition-all">Rubrica Clienti</button>
-                    <button id="btn-sub-mit" onclick="window.showCorriereSubTab('mittente')" class="px-4 py-4 text-sm font-bold border-b-2 border-transparent text-slate-400 transition-all">Dati Mittente</button>
+                    <button id="btn-sub-sped" onclick="window.showCorriereSubTab('spedizione')" class="px-4 py-4 text-sm font-black border-b-2 border-blue-500 text-blue-600">Nuova Spedizione</button>
+                    <button id="btn-sub-gest" onclick="window.showCorriereSubTab('gestione')" class="px-4 py-4 text-sm font-bold border-b-2 border-transparent text-slate-400">Rubrica Clienti</button>
+                    <button id="btn-sub-mit" onclick="window.showCorriereSubTab('mittente')" class="px-4 py-4 text-sm font-bold border-b-2 border-transparent text-slate-400">Dati Mittente</button>
                 </div>
                 
                 <div class="p-8 bg-slate-50 min-h-[400px]">
-                    
-                    <!-- Spedizione -->
                     <div id="sub-tab-spedizione" class="space-y-4">
                         <div class="bg-blue-50/50 p-4 rounded-2xl border border-blue-100 mb-4">
                             <label class="text-[10px] font-black text-blue-800 uppercase tracking-widest block mb-2">Seleziona Mittente Spedizione</label>
                             <select id="spedizione-seleziona-mittente" onchange="window.cambiaMittenteAttivo(this.value)" class="w-full bg-white border border-blue-200 p-3 rounded-xl font-bold text-sm outline-none text-blue-900 shadow-sm"></select>
                         </div>
-                        
                         <select id="select-rubrica" onchange="window.syncRubrica()" class="f-input mb-4"><option>Caricamento rubrica...</option></select>
                         <form onsubmit="window.viewCorriere(event)" class="space-y-4">
                             <input type="text" id="c-n" required class="f-input font-bold" placeholder="Destinatario">
                             <input type="text" id="c-i" required class="f-input" placeholder="Indirizzo">
-                            <div class="grid grid-cols-3 gap-4">
-                                <input type="text" id="c-c" required class="f-input" placeholder="CAP"><input type="text" id="c-t" required class="f-input" placeholder="Città"><input type="text" id="c-r" maxlength="2" class="f-input font-bold" placeholder="Provincia (Opzionale)">
-                            </div>
-                            <div class="grid grid-cols-2 gap-4"><input type="text" id="c-tel" class="f-input" placeholder="Telefono (Opzionale)"><input type="text" id="c-note" class="f-input" placeholder="Note Spedizione (Opzionale)"></div>
-                            <button type="submit" class="w-full bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-black py-5 rounded-2xl text-lg mt-4 shadow-lg transition-transform active:scale-95">GENERA ETICHETTA</button>
+                            <div class="grid grid-cols-3 gap-4"><input type="text" id="c-c" required class="f-input" placeholder="CAP"><input type="text" id="c-t" required class="f-input" placeholder="Città"><input type="text" id="c-r" maxlength="2" class="f-input font-bold" placeholder="Prov"></div>
+                            <div class="grid grid-cols-2 gap-4"><input type="text" id="c-tel" class="f-input" placeholder="Telefono (Opzionale)"><input type="text" id="c-note" class="f-input" placeholder="Note (Opzionale)"></div>
+                            <button type="submit" class="w-full bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-black py-5 rounded-2xl text-lg mt-4 shadow-lg active:scale-95 transition-transform">GENERA ETICHETTA</button>
                         </form>
                     </div>
 
-                    <!-- Gestione Rubrica (Screenshot Style) -->
                     <div id="sub-tab-gestione" class="hidden">
-                        
-                        <!-- Form Nuovo/Modifica (Inizialmente Nascosto) -->
                         <div id="rubrica-form-box" class="bg-white border-2 border-blue-100 rounded-2xl p-6 hidden mb-6 shadow-sm">
-                            <h4 id="rubrica-form-title" class="text-sm font-black text-slate-800 mb-4 uppercase tracking-wide">Nuovo Contatto</h4>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                                <input type="text" id="m-nome" class="f-input text-sm font-bold" placeholder="Nome o Ragione Sociale">
-                                <input type="text" id="m-tel" class="f-input text-sm" placeholder="Telefono">
-                            </div>
-                            <input type="text" id="m-ind" class="f-input text-sm mb-3" placeholder="Indirizzo (Via, Numero)">
-                            <div class="grid grid-cols-3 gap-3 mb-3">
-                                <input type="text" id="m-cap" class="f-input text-sm" placeholder="CAP">
-                                <input type="text" id="m-citta" class="f-input text-sm" placeholder="Città">
-                                <input type="text" id="m-prov" class="f-input text-sm" placeholder="PR (es. NA)">
-                            </div>
+                            <h4 id="rubrica-form-title" class="text-sm font-black text-slate-800 mb-4 uppercase">Contatto</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3"><input type="text" id="m-nome" class="f-input text-sm font-bold" placeholder="Nome"><input type="text" id="m-tel" class="f-input text-sm" placeholder="Telefono"></div>
+                            <input type="text" id="m-ind" class="f-input text-sm mb-3" placeholder="Indirizzo">
+                            <div class="grid grid-cols-3 gap-3 mb-3"><input type="text" id="m-cap" class="f-input text-sm" placeholder="CAP"><input type="text" id="m-citta" class="f-input text-sm" placeholder="Città"><input type="text" id="m-prov" class="f-input text-sm" placeholder="PR"></div>
                             <input type="text" id="m-note" class="f-input text-sm mb-4" placeholder="Note (Opzionale)">
-                            <div class="flex justify-end gap-3 pt-2 border-t border-slate-100">
-                                <button type="button" onclick="window.annullaModifica()" class="px-5 py-2.5 bg-slate-100 text-slate-600 hover:bg-slate-200 text-xs font-black rounded-xl transition-colors uppercase tracking-wide">Annulla</button>
-                                <button type="button" onclick="window.salvaContatto()" class="px-5 py-2.5 bg-blue-600 text-white hover:bg-blue-700 text-xs font-black rounded-xl transition-colors uppercase tracking-wide shadow-md">Salva Contatto</button>
-                            </div>
+                            <div class="flex justify-end gap-3"><button type="button" onclick="window.annullaModifica()" class="px-5 py-2.5 bg-slate-100 font-black rounded-xl">Annulla</button><button type="button" onclick="window.salvaContatto()" class="px-5 py-2.5 bg-blue-600 text-white font-black rounded-xl">Salva</button></div>
                         </div>
-
-                        <!-- Barra di Ricerca e Aggiunta -->
-                        <div class="mb-6 flex flex-col md:flex-row gap-4 items-center border-b border-slate-200 pb-6">
-                            <div class="relative flex-grow w-full">
-                                <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                                <input type="text" oninput="window.renderRubricaList(this.value)" class="w-full bg-white border border-slate-200 rounded-full py-3.5 pl-10 pr-4 text-sm font-medium text-slate-700 outline-none focus:border-blue-500 shadow-sm" placeholder="Cerca cliente per nome o città...">
-                            </div>
-                            <button type="button" onclick="window.avviaNuovoContatto()" class="bg-[#007bff] hover:bg-blue-700 text-white text-sm font-black px-6 py-3.5 rounded-full whitespace-nowrap shadow-md transition-colors w-full md:w-auto">
-                                <i class="fa-solid fa-plus mr-1"></i> NUOVO CONTATTO
-                            </button>
-                        </div>
-                        
-                        <!-- Lista Card Contatti -->
+                        <div class="mb-6 flex gap-4"><input type="text" oninput="window.renderRubricaList(this.value)" class="flex-grow bg-white border border-slate-200 rounded-full py-3.5 px-6 font-medium outline-none" placeholder="Cerca cliente per nome o città..."><button onclick="window.avviaNuovoContatto()" class="bg-[#007bff] text-white font-black px-6 py-3.5 rounded-full whitespace-nowrap"><i class="fa-solid fa-plus mr-1"></i> NUOVO CONTATTO</button></div>
                         <div id="rubrica-list-container" class="space-y-3 max-h-[500px] overflow-y-auto pr-2 pb-4"></div>
                     </div>
 
-                    <!-- Impostazioni Mittente -->
                     <div id="sub-tab-mittente" class="hidden space-y-4">
                         <div class="bg-white p-6 rounded-[1.5rem] shadow-sm border border-slate-100 space-y-4">
-                            <div class="flex justify-between items-center mb-2">
-                                <h3 class="text-sm font-black text-slate-800 uppercase tracking-wide">Gestione Mittenti</h3>
-                                <button type="button" onclick="window.nuovoMittente()" class="text-blue-600 text-xs font-bold bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100"><i class="fa-solid fa-plus"></i> Nuovo</button>
-                            </div>
-                            
+                            <div class="flex justify-between items-center mb-2"><h3 class="text-sm font-black text-slate-800 uppercase tracking-wide">Gestione Mittenti</h3><button type="button" onclick="window.nuovoMittente()" class="text-blue-600 text-xs font-bold bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100"><i class="fa-solid fa-plus"></i> Nuovo</button></div>
                             <select id="gestione-seleziona-mittente" onchange="window.caricaCampiMittenteForm(this.value)" class="f-input text-sm"></select>
-                            <hr class="border-slate-100 my-4">
-
-                            <input type="hidden" id="mit-id">
+                            <hr class="border-slate-100 my-4"><input type="hidden" id="mit-id">
                             <input type="text" id="mit-nome" class="f-input uppercase font-bold" placeholder="Ragione Sociale Mittente">
                             <input type="text" id="mit-ind" class="f-input uppercase" placeholder="Indirizzo Mittente">
-                            <div class="grid grid-cols-3 gap-3">
-                                <input type="text" id="mit-cap" class="f-input" placeholder="CAP">
-                                <input type="text" id="mit-citta" class="f-input uppercase" placeholder="Città">
-                                <input type="text" id="mit-prov" maxlength="2" class="f-input uppercase font-bold" placeholder="PR">
-                            </div>
-                            
-                            <div class="flex items-center gap-3 mt-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                <input type="checkbox" id="mit-def" class="w-5 h-5 accent-emerald-500 rounded">
-                                <label for="mit-def" class="text-sm font-bold text-slate-700 cursor-pointer">Imposta come predefinito per tutte le spedizioni</label>
-                            </div>
-                            
-                            <button type="button" onclick="window.salvaMittenteCloud()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-xl text-sm uppercase tracking-wider transition-colors mt-4 shadow-md"><i class="fa-solid fa-floppy-disk mr-1"></i> Salva Mittente</button>
+                            <div class="grid grid-cols-3 gap-3"><input type="text" id="mit-cap" class="f-input" placeholder="CAP"><input type="text" id="mit-citta" class="f-input uppercase" placeholder="Città"><input type="text" id="mit-prov" maxlength="2" class="f-input uppercase font-bold" placeholder="PR"></div>
+                            <div class="flex items-center gap-3 mt-4 bg-slate-50 p-4 rounded-xl border border-slate-100"><input type="checkbox" id="mit-def" class="w-5 h-5 accent-emerald-500 rounded"><label for="mit-def" class="text-sm font-bold text-slate-700 cursor-pointer">Imposta come predefinito per tutte le spedizioni</label></div>
+                            <button type="button" onclick="window.salvaMittenteCloud()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-xl text-sm uppercase tracking-wider transition-colors shadow-md"><i class="fa-solid fa-floppy-disk mr-1"></i> Salva Mittente</button>
                         </div>
                     </div>
                 </div>
@@ -774,19 +648,14 @@
         </div>
     </main>
 
-    <!-- Modal Avviso Eliminazione (Sostituisce alert/confirm di sistema) -->
+    <!-- Modal Avviso Eliminazione Rubrica -->
     <div id="modal-conferma-eliminazione" class="fixed inset-0 z-[3000] bg-slate-900/60 backdrop-blur-sm hidden flex justify-center items-center p-4">
-        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden text-center border border-slate-100 transform transition-all">
-            <div class="bg-rose-500 p-6 text-white flex justify-center items-center">
-                <i class="fa-solid fa-triangle-exclamation text-5xl"></i>
-            </div>
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden text-center border border-slate-100">
+            <div class="bg-rose-500 p-6 text-white"><i class="fa-solid fa-triangle-exclamation text-5xl"></i></div>
             <div class="p-8">
                 <h3 class="font-black text-xl text-slate-800 mb-2">Sei Sicuro?</h3>
-                <p class="text-sm text-slate-500 mb-8 font-medium">Questa azione eliminerà il contatto dal database cloud e non può essere annullata.</p>
-                <div class="flex gap-3 justify-center">
-                    <button onclick="window.chiudiModalEliminazione()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3 px-4 rounded-xl text-sm transition-colors">ANNULLA</button>
-                    <button onclick="window.confermaEliminazione()" class="flex-1 bg-rose-500 hover:bg-rose-600 text-white font-bold py-3 px-4 rounded-xl text-sm transition-colors shadow-lg shadow-rose-500/30">SI, ELIMINA</button>
-                </div>
+                <p class="text-sm text-slate-500 mb-8 font-medium">Questa azione eliminerà il contatto dal cloud.</p>
+                <div class="flex gap-3 justify-center"><button onclick="window.chiudiModalEliminazione()" class="flex-1 bg-slate-100 font-bold py-3 px-4 rounded-xl">ANNULLA</button><button onclick="window.confermaEliminazione()" class="flex-1 bg-rose-500 text-white font-bold py-3 px-4 rounded-xl">ELIMINA</button></div>
             </div>
         </div>
     </div>
@@ -794,27 +663,14 @@
     <!-- Modal Nuovo Prodotto / Lotto -->
     <div id="modal-nuovo-lotto" class="fixed inset-0 z-[2000] bg-black/80 backdrop-blur-sm hidden flex justify-center items-center p-4">
         <div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden text-left border border-slate-100">
-            <div class="bg-[#059669] px-6 py-5 text-white flex justify-between items-center">
-                <h3 class="font-black text-lg flex items-center gap-2"><i class="fa-solid fa-box-open"></i> Nuovo Prodotto / Lotto</h3>
-                <button onclick="window.closeNuovoLottoModal()" class="hover:text-red-300 transition-colors"><i class="fa-solid fa-xmark fa-lg"></i></button>
-            </div>
+            <div class="bg-[#059669] px-6 py-5 text-white flex justify-between items-center"><h3 class="font-black text-lg flex items-center gap-2"><i class="fa-solid fa-box-open"></i> Nuovo Prodotto / Lotto</h3><button onclick="window.closeNuovoLottoModal()" class="hover:text-red-300 transition-colors"><i class="fa-solid fa-xmark fa-lg"></i></button></div>
             <div class="p-6 space-y-5 bg-[#f8fafc]">
-                <div>
-                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 block">Nome Prodotto</label>
-                    <input list="prod-list" id="nl-nome" class="w-full bg-white border-2 border-slate-200 p-4 rounded-xl font-bold text-slate-800 outline-none focus:border-emerald-500 shadow-sm" placeholder="Es. FOLIFERRO">
-                    <datalist id="prod-list"></datalist>
-                </div>
+                <div><label class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 block">Nome Prodotto</label><input list="prod-list" id="nl-nome" class="w-full bg-white border-2 border-slate-200 p-4 rounded-xl font-bold text-slate-800 outline-none shadow-sm" placeholder="Es. FOLIFERRO"><datalist id="prod-list"></datalist></div>
                 <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 block">Lotto</label>
-                        <input type="text" id="nl-lotto" class="w-full bg-white border-2 border-slate-200 p-4 rounded-xl font-bold text-slate-800 outline-none focus:border-emerald-500 shadow-sm" placeholder="Es. R664">
-                    </div>
-                    <div>
-                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 block">Scadenza</label>
-                        <input type="text" id="nl-scad" class="w-full bg-white border-2 border-slate-200 p-4 rounded-xl font-bold text-slate-800 outline-none focus:border-emerald-500 shadow-sm" placeholder="Es. 04/29">
-                    </div>
+                    <div><label class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 block">Lotto</label><input type="text" id="nl-lotto" class="w-full bg-white border-2 border-slate-200 p-4 rounded-xl font-bold text-slate-800 outline-none shadow-sm" placeholder="Es. R664"></div>
+                    <div><label class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 block">Scadenza</label><input type="text" id="nl-scad" class="w-full bg-white border-2 border-slate-200 p-4 rounded-xl font-bold text-slate-800 outline-none shadow-sm" placeholder="Es. 04/29"></div>
                 </div>
-                <button onclick="window.salvaNuovoLotto()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-xl text-lg mt-2 shadow-lg transition-transform active:scale-95">SALVA E USA</button>
+                <button onclick="window.salvaNuovoLotto()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-xl text-lg mt-2 shadow-lg">SALVA E USA</button>
             </div>
         </div>
     </div>
@@ -823,32 +679,19 @@
     <div id="print-lotti-area"><div id="grid-l" class="grid-labels"></div></div>
 
     <div id="print-corriere-area" class="flex flex-col justify-between h-full bg-white text-slate-900">
-        <div class="border-b-[6px] border-slate-900 pb-5 text-left">
-            <span class="text-sm font-bold tracking-widest text-slate-500 uppercase">Mittente:</span>
-            <p id="p-mit-nome" class="text-lg font-black text-slate-900 leading-tight">CLINNIX S.R.L. - VIA DEL LAVORO, 10 - 80100 NAPOLI (NA)</p>
-        </div>
-
+        <div class="border-b-[6px] border-slate-900 pb-5 text-left"><span class="text-sm font-bold tracking-widest text-slate-500 uppercase">Mittente:</span><p id="p-mit-nome" class="text-lg font-black text-slate-900 leading-tight">CLINNIX S.R.L. - VIA DEL LAVORO, 10 - 80100 NAPOLI (NA)</p></div>
         <div class="flex-grow flex flex-col justify-center border-l-[16px] border-slate-900 pl-8 my-6 text-left">
             <span class="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-2">CONSEGNARE A:</span>
             <strong id="p-n" class="text-5xl block font-black leading-tight text-slate-950 uppercase mb-3"></strong>
-            <p id="p-i" class="text-3xl font-bold text-slate-800 mb-1 uppercase"></p>
-            
-            <!-- Risolto problema parentesi vuote qui -->
-            <p id="p-loc-string" class="text-3xl font-black text-slate-950 uppercase"></p>
-            
-            <div id="p-tel-box" class="mt-4 pt-4 border-t-4 border-slate-100 hidden">
-                <p class="text-xl font-bold text-slate-900">Tel: <span id="p-tel" class="font-black text-2xl"></span></p>
-            </div>
-            <div id="p-note-box" class="text-sm text-amber-950 bg-amber-50 px-5 py-4 rounded-xl font-bold border-2 border-amber-200 mt-2 hidden">
-                <i class="fa-solid fa-bell mr-1.5 text-amber-600"></i> <span id="p-note"></span>
-            </div>
+            <p id="p-i" class="text-3xl font-bold text-slate-800 mb-1 uppercase"></p><p id="p-loc-string" class="text-3xl font-black text-slate-950 uppercase"></p>
+            <div id="p-tel-box" class="mt-4 pt-4 border-t-4 border-slate-100 hidden"><p class="text-xl font-bold text-slate-900">Tel: <span id="p-tel" class="font-black text-2xl"></span></p></div>
+            <div id="p-note-box" class="text-sm text-amber-950 bg-amber-50 px-5 py-4 rounded-xl font-bold border-2 border-amber-200 mt-2 hidden"><i class="fa-solid fa-bell mr-1.5 text-amber-600"></i> <span id="p-note"></span></div>
             <span class="text-2xl font-black mt-6 border-t-4 border-slate-900 pt-3 inline-block tracking-widest text-slate-800">ITALY</span>
         </div>
-
-        <div class="text-center border-t-4 border-slate-900 pt-4 flex flex-col items-center">
-            <svg id="p-b" class="mx-auto scale-125 my-4"></svg>
-        </div>
+        <div class="text-center border-t-4 border-slate-900 pt-4 flex flex-col items-center"><svg id="p-b" class="mx-auto scale-125 my-4"></svg></div>
     </div>
+
+    <div id="print-inventory-area"></div>
 
 </body>
 </html>
