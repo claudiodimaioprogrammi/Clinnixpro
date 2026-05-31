@@ -80,7 +80,7 @@
     </div>
     
     <script type="text/babel" data-type="module">
-        import React, { useState, useEffect } from 'https://esm.sh/react@18';
+        import React, { useState, useEffect, useRef } from 'https://esm.sh/react@18';
         import ReactDOM from 'https://esm.sh/react-dom@18/client';
         import { Package, Truck, CheckCircle, Plus, ArrowLeft, Trash2, ClipboardList, Save, AlertTriangle, Pencil, X, Moon, Sun, Search, Download, StickyNote, Layers, Box, Minus, Clock, Activity, ShoppingBag, Users, Briefcase, ShoppingCart, Calculator, MessageCircle, Globe, History, MapPin, ChevronDown, ChevronUp, EyeOff, Printer } from 'https://esm.sh/lucide-react@0.294.0';
         
@@ -187,7 +187,8 @@
             all: 'TUTTI',
             supplierPending: 'IN ATTESA CONFERMA',
             supplierConfirmed: 'CONFERMATO',
-            sollecitaAlert: 'SOLLECITA FORNITORE'
+            sollecitaAlert: 'SOLLECITA FORNITORE',
+            pressBackToExit: 'Premi di nuovo per uscire'
           },
           en: {
             accessTitle: "Team Restricted Area",
@@ -272,7 +273,8 @@
             all: 'ALL',
             supplierPending: 'AWAITING CONFIRM.',
             supplierConfirmed: 'CONFIRMED',
-            sollecitaAlert: 'REMIND SUPPLIER'
+            sollecitaAlert: 'REMIND SUPPLIER',
+            pressBackToExit: 'Press back again to exit'
           },
           si: {
             accessTitle: "කණ්ඩායම් සීමිත ප්‍රදේශය (Team Area)",
@@ -357,7 +359,8 @@
             all: 'සියල්ල',
             supplierPending: 'තහවුරු කිරීම අපේක්ෂාවෙන්',
             supplierConfirmed: 'තහවුරු කර ඇත',
-            sollecitaAlert: 'සැපයුම්කරුට මතක් කරන්න'
+            sollecitaAlert: 'සැපයුම්කරුට මතක් කරන්න',
+            pressBackToExit: 'පිටවීමට නැවත ඔබන්න'
           },
           ta: {
             accessTitle: "குழுவிற்கான ஒதுக்கப்பட்ட பகுதி (Team Area)",
@@ -442,7 +445,8 @@
             all: 'அனைத்து',
             supplierPending: 'உறுதிப்படுத்த காத்திருக்கிறது',
             supplierConfirmed: 'உறுதிப்படுத்தப்பட்டது',
-            sollecitaAlert: 'சப்ளையரை நினைவூட்டு'
+            sollecitaAlert: 'சப்ளையரை நினைவூட்டு',
+            pressBackToExit: 'வெளியேற மீண்டும் அழுத்தவும்'
           }
         };
 
@@ -498,6 +502,11 @@
           const [isDraggingCalc, setIsDraggingCalc] = useState(false);
           const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 
+          // Gestione Tasto Indietro Hardware (Navigazione Mobile)
+          const [showExitWarning, setShowExitWarning] = useState(false);
+          const exitTimeout = useRef(null);
+          const stateRef = useRef({});
+
           const toggleLang = () => {
               if (lang === 'it') setLang('en');
               else if (lang === 'en') setLang('si');
@@ -537,7 +546,7 @@
           const [newDest, setNewDest] = useState('');
           const [newRegion, setNewRegion] = useState(''); 
           const [sampleQuantities, setSampleQuantities] = useState({});
-          const [sampleSearch, setSampleSearch] = useState(''); // Stato per la ricerca dei campioni
+          const [sampleSearch, setSampleSearch] = useState('');
           const [extraItems, setExtraItems] = useState([{ id: 'init', name: '', qty: '' }]);
           const [noteText, setNoteText] = useState('');
           const [noteSubject, setNoteSubject] = useState('');
@@ -548,7 +557,6 @@
 
           const categorie = ['Integratori', 'Detergenti', 'Campioni', 'Bugiardini', 'Ufficio', 'Altro'];
 
-          // Calcola i giorni passati da una certa data per il sollecito
           const getDaysSince = (dateString) => {
               if (!dateString) return 0;
               const today = new Date();
@@ -559,19 +567,78 @@
               return diffTime > 0 ? Math.floor(diffTime / (1000 * 60 * 60 * 24)) : 0;
           };
 
-          // EFFETTO DI ACCESSO AUTOMATICO VIA URL (?pin=12345)
+          // ACCESSO AUTOMATICO
           useEffect(() => {
               const urlParams = new URLSearchParams(window.location.search);
               const pinParam = urlParams.get('pin');
               if (pinParam === CORRECT_PIN) {
                   setIsAuthenticated(true);
-                  // Registra in sessione per passarlo alla print station
                   sessionStorage.setItem('clinnix_session_pin', pinParam);
-                  // Rimuove la password dalla barra degli indirizzi in tempo reale per sicurezza
                   const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
                   window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
               }
           }, []);
+
+          // AGGIORNAMENTO REFERENCE PER TASTO INDIETRO
+          useEffect(() => {
+              stateRef.current = {
+                  currentView, backView,
+                  editingItemId, editingLotsId, showWhatsAppModal,
+                  itemToDelete, showClearLogsModal, editingNoteId,
+                  showExitWarning, showCalc
+              };
+          });
+
+          // LOGICA TASTO INDIETRO HARDWARE
+          useEffect(() => {
+              if (!isAuthenticated) return;
+
+              // Intrappola la history al caricamento iniziale
+              window.history.pushState({ trapped: true }, '', window.location.href);
+
+              const handlePopState = (e) => {
+                  const s = stateRef.current;
+
+                  // 1. Chiudi tutti i modali aperti (se ce ne sono)
+                  if (s.showCalc) { setShowCalc(false); window.history.pushState({ trapped: true }, '', window.location.href); return; }
+                  if (s.itemToDelete) { setItemToDelete(null); window.history.pushState({ trapped: true }, '', window.location.href); return; }
+                  if (s.showClearLogsModal) { setShowClearLogsModal(false); window.history.pushState({ trapped: true }, '', window.location.href); return; }
+                  if (s.showWhatsAppModal) { setShowWhatsAppModal(false); window.history.pushState({ trapped: true }, '', window.location.href); return; }
+                  if (s.editingLotsId) { setEditingLotsId(null); window.history.pushState({ trapped: true }, '', window.location.href); return; }
+                  if (s.editingItemId) { setEditingItemId(null); window.history.pushState({ trapped: true }, '', window.location.href); return; }
+                  if (s.editingNoteId) { setEditingNoteId(null); setNoteText(''); setNoteSubject(''); window.history.pushState({ trapped: true }, '', window.location.href); return; }
+
+                  // 2. Se sei in una sottomaschera, torna indietro
+                  if (['new', 'informatori', 'congressi'].includes(s.currentView)) {
+                      setCurrentView('dashboard');
+                      window.history.pushState({ trapped: true }, '', window.location.href);
+                      return;
+                  }
+                  if (s.currentView === 'repDetails') {
+                      setCurrentView(s.backView || 'dashboard');
+                      window.history.pushState({ trapped: true }, '', window.location.href);
+                      return;
+                  }
+
+                  // 3. Sei su una schermata principale. Logica doppio tap per uscire.
+                  if (s.showExitWarning) {
+                      // E' il SECONDO tap! Usciamo dall'app
+                      clearTimeout(exitTimeout.current);
+                      setShowExitWarning(false);
+                      // Non facciamo pushState, così il popstate corrente (che ha già fatto un passo indietro nella history nativa) chiuderà l'app o tornerà al sito precedente
+                  } else {
+                      // È il PRIMO tap. Avvisiamo e ri-intrappoliamo.
+                      setShowExitWarning(true);
+                      window.history.pushState({ trapped: true }, '', window.location.href);
+                      exitTimeout.current = setTimeout(() => {
+                          setShowExitWarning(false);
+                      }, 2000); // Hai 2 secondi per premere di nuovo
+                  }
+              };
+
+              window.addEventListener('popstate', handlePopState);
+              return () => window.removeEventListener('popstate', handlePopState);
+          }, [isAuthenticated]);
 
           useEffect(() => {
             if (isDarkMode) document.documentElement.classList.add('dark');
@@ -974,6 +1041,13 @@
                         })}
                     </div>
                 </div>
+              )}
+
+              {/* TOAST AVVISO DOPPIO TOCCO PER USCIRE */}
+              {showExitWarning && (
+                  <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full font-bold text-sm sm:text-base shadow-2xl z-[500] border border-slate-600/50 whitespace-nowrap animate-fade-in text-center">
+                      {translations[lang].pressBackToExit}
+                  </div>
               )}
 
               <main className="max-w-4xl mx-auto p-3 md:p-5 w-full">
@@ -1428,7 +1502,7 @@
                             <h3 className="font-black text-sm uppercase tracking-widest text-slate-500">{translations[lang].selectProducts}</h3>
                         </div>
                         
-                        {/* NUOVA BARRA DI RICERCA CAMPIONI */}
+                        {/* BARRA DI RICERCA CAMPIONI */}
                         <div className="relative mb-3 w-full min-w-0">
                             <Search className="absolute left-3 top-3.5 w-5 h-5 opacity-40 text-slate-900 dark:text-white" />
                             <input 
@@ -1441,7 +1515,6 @@
                         </div>
 
                         <div className="max-h-[35vh] overflow-y-auto border-2 rounded-3xl p-2 custom-scrollbar bg-slate-50 dark:bg-slate-900 shadow-inner">
-                            {/* LOGICA AGGIORNATA PER FILTRARE I CAMPIONI IN BASE ALLA RICERCA */}
                             {items.filter(i => !i.excludeFromSamples && (i.name || '').toLowerCase().includes(sampleSearch.toLowerCase())).map(item => (
                                 <div key={item.id} className="flex justify-between items-center p-3 border-b-2 border-slate-100 dark:border-slate-800 last:border-0 hover:bg-white dark:hover:bg-slate-800 rounded-xl transition-colors">
                                     <div className="flex items-center gap-3">
@@ -1777,7 +1850,7 @@
               )}
 
               <nav className={`fixed bottom-0 left-0 w-full h-[75px] border-t-2 flex justify-around items-center px-1 z-[150] shadow-[0_-4px_10px_rgba(0,0,0,0.1)] ${isDarkMode ? 'bg-[#0f172a] border-slate-800' : 'bg-white border-slate-200'}`} style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-                <button onClick={() => setCurrentView('dashboard')} className={`flex-1 flex flex-col items-center gap-1 ${currentView === 'dashboard' || currentView === 'informatori' || currentView === 'repDetails' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}><Users className="w-6 h-6"/><span className="text-[10px] font-black uppercase tracking-tighter">Campioni</span></button>
+                <button onClick={() => setCurrentView('dashboard')} className={`flex-1 flex flex-col items-center gap-1 ${currentView === 'dashboard' || currentView === 'informatori' || currentView === 'repDetails' || currentView === 'new' || currentView === 'congressi' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}><Users className="w-6 h-6"/><span className="text-[10px] font-black uppercase tracking-tighter">Campioni</span></button>
                 <button onClick={() => setCurrentView('inventory')} className={`flex-1 flex flex-col items-center gap-1 ${currentView === 'inventory' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}><ClipboardList className="w-6 h-6"/><span className="text-[10px] font-black uppercase tracking-tighter">Magazzino</span></button>
                 <button onClick={() => setCurrentView('ordini')} className={`flex-1 flex flex-col items-center gap-1 ${currentView === 'ordini' ? 'text-orange-600 dark:text-orange-400' : 'text-slate-500 dark:text-slate-400'}`}><ShoppingCart className="w-6 h-6"/><span className="text-[10px] font-black uppercase tracking-tighter">Ordini</span></button>
                 <button onClick={() => setCurrentView('history')} className={`flex-1 flex flex-col items-center gap-1 ${currentView === 'history' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}><Clock className="w-6 h-6"/><span className="text-[10px] font-black uppercase tracking-tighter">Storico</span></button>
