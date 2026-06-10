@@ -102,7 +102,6 @@
         const db = getFirestore(app);
         const appId = 'clinnix-pro-v1';
 
-        // Dizionario traduzioni quadrilingue (Italiano, Inglese, Singalese, Tamil)
         const translations = {
           it: {
             accessTitle: "Area Riservata Team",
@@ -188,7 +187,11 @@
             supplierPending: 'IN ATTESA CONFERMA',
             supplierConfirmed: 'CONFERMATO',
             sollecitaAlert: 'SOLLECITA FORNITORE',
-            pressBackToExit: 'Premi di nuovo per uscire'
+            pressBackToExit: 'Premi di nuovo per uscire',
+            modePcs: 'A PEZZI',
+            modeCartons: 'A CARTONI',
+            numCartons: 'Num. Cartoni',
+            lastMod: 'Ultima mod.'
           },
           en: {
             accessTitle: "Team Restricted Area",
@@ -274,7 +277,11 @@
             supplierPending: 'AWAITING CONFIRM.',
             supplierConfirmed: 'CONFIRMED',
             sollecitaAlert: 'REMIND SUPPLIER',
-            pressBackToExit: 'Press back again to exit'
+            pressBackToExit: 'Press back again to exit',
+            modePcs: 'BY PIECES',
+            modeCartons: 'BY CARTONS',
+            numCartons: 'Num. Cartons',
+            lastMod: 'Last mod.'
           },
           si: {
             accessTitle: "කණ්ඩායම් සීමිත ප්‍රදේශය (Team Area)",
@@ -360,7 +367,11 @@
             supplierPending: 'තහවුරු කිරීම අපේක්ෂාවෙන්',
             supplierConfirmed: 'තහවුරු කර ඇත',
             sollecitaAlert: 'සැපයුම්කරුට මතක් කරන්න',
-            pressBackToExit: 'පිටවීමට නැවත ඔබන්න'
+            pressBackToExit: 'පිටවීමට නැවත ඔබන්න',
+            modePcs: 'කෑලි වලින්',
+            modeCartons: 'පෙට්ටි වලින්',
+            numCartons: 'පෙට්ටි ගණන',
+            lastMod: 'අවසන් සංස්.'
           },
           ta: {
             accessTitle: "குழுவிற்கான ஒதுக்கப்பட்ட பகுதி (Team Area)",
@@ -446,7 +457,11 @@
             supplierPending: 'உறுதிப்படுத்த காத்திருக்கிறது',
             supplierConfirmed: 'உறுதிப்படுத்தப்பட்டது',
             sollecitaAlert: 'சப்ளையரை நினைவூட்டு',
-            pressBackToExit: 'வெளியேற மீண்டும் அழுத்தவும்'
+            pressBackToExit: 'வெளியேற மீண்டும் அழுத்தவும்',
+            modePcs: 'துண்டுகளாக',
+            modeCartons: 'பெட்டிகளாக',
+            numCartons: 'பெட்டிகளின் எண்',
+            lastMod: 'கடைசி மாற்றம்'
           }
         };
 
@@ -475,6 +490,9 @@
           const [backView, setBackView] = useState('dashboard');
           const [expandedShipmentId, setExpandedShipmentId] = useState(null);
 
+          const [stockInputMode, setStockInputMode] = useState('pezzi'); 
+          const [newInvCartons, setNewInvCartons] = useState('');
+          
           const [newInvName, setNewInvName] = useState('');
           const [newInvCategory, setNewInvCategory] = useState('Integratori');
           const [newInvCartonSize, setNewInvCartonSize] = useState('10');
@@ -569,36 +587,61 @@
 
           // ACCESSO AUTOMATICO
           useEffect(() => {
-              const urlParams = new URLSearchParams(window.location.search);
-              const pinParam = urlParams.get('pin');
-              if (pinParam === CORRECT_PIN) {
-                  setIsAuthenticated(true);
-                  sessionStorage.setItem('clinnix_session_pin', pinParam);
-                  const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
-                  window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
-              }
+            const initAuth = async () => {
+              try { await signInAnonymously(auth); } catch(e) { console.error("Auth error:", e); }
+            };
+            initAuth();
+            const unsubscribe = onAuthStateChanged(auth, setUser);
+            return () => unsubscribe();
           }, []);
 
-          // AGGIORNAMENTO REFERENCE PER TASTO INDIETRO
           useEffect(() => {
-              stateRef.current = {
-                  currentView, backView,
-                  editingItemId, editingLotsId, showWhatsAppModal,
-                  itemToDelete, showClearLogsModal, editingNoteId,
-                  showExitWarning, showCalc
-              };
-          });
+            if (!user || !isAuthenticated) return;
+            console.log("Inizio sincronizzazione Firebase per appId:", appId);
+            const base = ['artifacts', appId, 'public', 'data'];
+            
+            const unsub = [
+              onSnapshot(collection(db, ...base, 'shipments'), s => {
+                console.log("Firebase 'shipments' ricevuto:", s.docs.length, "documenti");
+                setShipments(s.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (b.createdAt||0) - (a.createdAt||0)));
+              }, (err) => console.error("Errore Firebase 'shipments':", err)),
+              
+              onSnapshot(collection(db, ...base, 'items'), s => {
+                console.log("Firebase 'items' ricevuto:", s.docs.length, "documenti");
+                setItems(s.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (a.name||'').localeCompare(b.name||'')));
+              }, (err) => console.error("Errore Firebase 'items':", err)),
+              
+              onSnapshot(collection(db, ...base, 'notes'), s => {
+                setNotes(s.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (b.createdAt||0) - (a.createdAt||0)));
+              }, (err) => console.error("Errore Firebase 'notes':", err)),
+              
+              onSnapshot(collection(db, ...base, 'logs'), s => {
+                setLogs(s.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (b.date||0) - (a.date||0)));
+              }, (err) => console.error("Errore Firebase 'logs':", err)),
+              
+              onSnapshot(collection(db, ...base, 'informatori'), s => {
+                setInformatori(s.docs.map(d => ({id: d.id, ...d.data()})));
+              }, (err) => console.error("Errore Firebase 'informatori':", err)),
 
-          // LOGICA TASTO INDIETRO HARDWARE
+              onSnapshot(collection(db, ...base, 'congressi'), s => {
+                setCongressi(s.docs.map(d => ({id: d.id, ...d.data()})));
+              }, (err) => console.error("Errore Firebase 'congressi':", err))
+            ];
+            
+            return () => unsub.forEach(f => f());
+          }, [user, isAuthenticated]);
+
+          // Sincronizzazione dello stato per l'handler popstate
+          useEffect(() => {
+              stateRef.current = { showCalc, itemToDelete, showClearLogsModal, showWhatsAppModal, editingLotsId, editingItemId, editingNoteId, currentView, backView, showExitWarning };
+          }, [showCalc, itemToDelete, showClearLogsModal, showWhatsAppModal, editingLotsId, editingItemId, editingNoteId, currentView, backView, showExitWarning]);
+
+          // Tasto Indietro (PopState)
           useEffect(() => {
               if (!isAuthenticated) return;
-
-              // Intrappola la history al caricamento iniziale
-              window.history.pushState({ trapped: true }, '', window.location.href);
-
-              const handlePopState = (e) => {
+              
+              const handlePopState = () => {
                   const s = stateRef.current;
-
                   // 1. Chiudi tutti i modali aperti (se ce ne sono)
                   if (s.showCalc) { setShowCalc(false); window.history.pushState({ trapped: true }, '', window.location.href); return; }
                   if (s.itemToDelete) { setItemToDelete(null); window.history.pushState({ trapped: true }, '', window.location.href); return; }
@@ -622,21 +665,21 @@
 
                   // 3. Sei su una schermata principale. Logica doppio tap per uscire.
                   if (s.showExitWarning) {
-                      // E' il SECONDO tap! Usciamo dall'app
                       clearTimeout(exitTimeout.current);
                       setShowExitWarning(false);
-                      // Non facciamo pushState, così il popstate corrente (che ha già fatto un passo indietro nella history nativa) chiuderà l'app o tornerà al sito precedente
                   } else {
-                      // È il PRIMO tap. Avvisiamo e ri-intrappoliamo.
                       setShowExitWarning(true);
                       window.history.pushState({ trapped: true }, '', window.location.href);
                       exitTimeout.current = setTimeout(() => {
                           setShowExitWarning(false);
-                      }, 2000); // Hai 2 secondi per premere di nuovo
+                      }, 2000); 
                   }
               };
 
               window.addEventListener('popstate', handlePopState);
+              // Intrappoliamo lo stato non appena ci si logga
+              window.history.pushState({ trapped: true }, '', window.location.href);
+              
               return () => window.removeEventListener('popstate', handlePopState);
           }, [isAuthenticated]);
 
@@ -677,59 +720,19 @@
             return updatedLots;
           };
 
-          useEffect(() => {
-            signInAnonymously(auth).catch(()=>{});
-            return onAuthStateChanged(auth, setUser);
-          }, []);
-
-          useEffect(() => {
-            if (!user || !isAuthenticated) return;
-            const base = ['artifacts', appId, 'public', 'data'];
-            const unsub = [
-              onSnapshot(collection(db, ...base, 'shipments'), s => setShipments(s.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (b.createdAt||0) - (a.createdAt||0)))),
-              onSnapshot(collection(db, ...base, 'items'), s => setItems(s.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => ((a.name||'').localeCompare(b.name||''))))),
-              onSnapshot(collection(db, ...base, 'notes'), s => setNotes(s.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (b.createdAt||0) - (a.createdAt||0)))),
-              onSnapshot(collection(db, ...base, 'logs'), s => setLogs(s.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (b.date||0) - (a.date||0)))),
-              onSnapshot(collection(db, ...base, 'informatori'), s => setInformatori(s.docs.map(d => ({id: d.id, ...d.data()})))),
-              onSnapshot(collection(db, ...base, 'congressi'), s => setCongressi(s.docs.map(d => ({id: d.id, ...d.data()}))))
-            ];
-            return () => unsub.forEach(f => f());
-          }, [user, isAuthenticated]);
-
-          const handleExportExcel = () => {
-              let csvContent = "\uFEFF";
-              csvContent += "Nome Prodotto;Categoria;Giacenza (Pz);Conf. Vendibili;In Arrivo;Data Arrivo;Cartoni;Pezzi Sciolti;Allarme Scorta\n";
-              
-              const filteredItems = items.filter(i => (inventoryFilter === 'Tutti' || i.category === inventoryFilter) && (i.name || '').toLowerCase().includes(searchQuery.toLowerCase()));
-              
-              filteredItems.forEach(i => { 
-                  const cSize = parseInt(i.cartonSize) || 10;
-                  const pPack = parseInt(i.piecesPerPack) || 1;
-                  const stock = parseInt(i.stock) || 0;
-                  const calcCartons = Math.floor(stock / cSize);
-                  const calcLoose = stock % cSize;
-
-                  csvContent += `"${i.name||''}";"${i.category||''}";${stock};${Math.floor(stock/pPack)};${i.incoming||0};"${i.incomingDate||''}";${calcCartons};${calcLoose};${i.alertThreshold||0}\n`; 
-              });
-              
-              const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-              const url = URL.createObjectURL(blob);
-              const link = document.createElement("a");
-              link.setAttribute("href", url);
-              link.setAttribute("download", `Magazzino_Clinnix_${new Date().toLocaleDateString('it-IT').replace(/\//g, '-')}.csv`);
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-              URL.revokeObjectURL(url);
-          };
-
           const handleAddNewItem = async () => {
             if (!newInvName.trim()) return;
             const nameToSave = newInvName.trim();
             const existingItem = items.find(i => (i.name || '').toLowerCase() === nameToSave.toLowerCase());
             
-            const qtyToAdd = parseInt(newInvQty) || 0;
             const cartonSizeToSave = parseInt(newInvCartonSize) || 10;
+            
+            let qtyToAdd = 0;
+            if (stockInputMode === 'cartoni') {
+                qtyToAdd = (parseInt(newInvCartons) || 0) * cartonSizeToSave;
+            } else {
+                qtyToAdd = parseInt(newInvQty) || 0;
+            }
             
             let lotToAdd = null;
             if (newInvLotto.trim() || newInvScadenza.trim() || qtyToAdd > 0) {
@@ -749,7 +752,8 @@
                 
                 await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'items', existingItem.id), { 
                     stock: newStock,
-                    lots: newLots
+                    lots: newLots,
+                    lastModified: Date.now() 
                 });
                 addLog(`Rifornito: ${existingItem.name} (+${qtyToAdd} pz)`, 'restock');
             } else {
@@ -760,13 +764,14 @@
                 const data = {
                   name: nameToSave, stock: qtyToAdd, cartonSize: cartonSizeToSave,
                   piecesPerPack: 1, category: newInvCategory || 'Altro', alertThreshold: parseInt(newInvAlert) || 10, lots: lots,
-                  excludeFromSamples: false, hasNoLots: false, orderConfirmed: false
+                  excludeFromSamples: false, hasNoLots: false, orderConfirmed: false, productNote: '',
+                  lastModified: Date.now()
                 };
                 await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'items'), { ...data, createdAt: Date.now() });
                 addLog(`Rifornimento: ${nameToSave} (+${qtyToAdd} pz)`, 'restock');
             }
             
-            setNewInvName(''); setNewInvQty(''); setNewInvLotto(''); setNewInvScadenza('');
+            setNewInvName(''); setNewInvQty(''); setNewInvCartons(''); setNewInvLotto(''); setNewInvScadenza('');
           };
 
           const handleQuickStock = async (item, change) => {
@@ -786,7 +791,7 @@
                 newLots = updateLotsLogic(newLots, -amountToRemoveFromLots);
             }
             
-            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'items', item.id), { stock: newStock, lots: newLots });
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'items', item.id), { stock: newStock, lots: newLots, lastModified: Date.now() });
             addLog(`${item.name || 'Prodotto'}: ${actualChange > 0 ? '+' : ''}${actualChange} pz`, actualChange > 0 ? 'add' : 'remove');
           };
 
@@ -806,7 +811,9 @@
                 incoming: parseInt(editFormData.incoming) || 0, 
                 incomingDate: editFormData.incomingDate || '', 
                 orderDate: editFormData.orderDate || '',
-                orderConfirmed: editFormData.orderConfirmed || false
+                orderConfirmed: editFormData.orderConfirmed || false,
+                productNote: editFormData.productNote || '',
+                lastModified: Date.now()
             };
             
             if (editFormData.name !== undefined && editFormData.name.trim() !== '') {
@@ -835,7 +842,8 @@
                   incoming: 0,
                   incomingDate: "",
                   orderDate: "",
-                  orderConfirmed: false
+                  orderConfirmed: false,
+                  lastModified: Date.now()
               });
               addLog(`Annullato e rimosso ordine per: ${item.name}`, 'edit');
           };
@@ -921,6 +929,33 @@
               if (!id) return '';
               if (id.toString().startsWith('0.')) return '';
               return id;
+          };
+
+          const handleExportExcel = () => {
+              let csvContent = "\uFEFF";
+              csvContent += "Nome Prodotto;Categoria;Giacenza (Pz);Conf. Vendibili;In Arrivo;Data Arrivo;Cartoni;Pezzi Sciolti;Allarme Scorta\n";
+              
+              const filteredItems = items.filter(i => (inventoryFilter === 'Tutti' || i.category === inventoryFilter) && (i.name || '').toLowerCase().includes(searchQuery.toLowerCase()));
+              
+              filteredItems.forEach(i => { 
+                  const cSize = parseInt(i.cartonSize) || 10;
+                  const pPack = parseInt(i.piecesPerPack) || 1;
+                  const stock = parseInt(i.stock) || 0;
+                  const calcCartons = Math.floor(stock / cSize);
+                  const calcLoose = stock % cSize;
+
+                  csvContent += `"${i.name||''}";"${i.category||''}";${stock};${Math.floor(stock/pPack)};${i.incoming||0};"${i.incomingDate||''}";${calcCartons};${calcLoose};${i.alertThreshold||0}\n`; 
+              });
+              
+              const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement("a");
+              link.setAttribute("href", url);
+              link.setAttribute("download", `Magazzino_Clinnix_${new Date().toLocaleDateString('it-IT').replace(/\//g, '-')}.csv`);
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              URL.revokeObjectURL(url);
           };
 
           if (!isAuthenticated) {
@@ -1052,13 +1087,27 @@
 
               <main className="max-w-4xl mx-auto p-3 md:p-5 w-full">
                 
+                {}
                 {/* --- MAGAZZINO --- */}
                 {currentView === 'inventory' && (
                   <div className="space-y-4 w-full">
                     <div className={`mt-2 p-4 md:p-5 rounded-3xl border w-full overflow-hidden ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300 shadow-sm'}`}>
                       <h3 className="font-extrabold mb-4 text-slate-800 dark:text-slate-200 uppercase tracking-wide flex items-center gap-2"><Plus className="w-6 h-6 text-emerald-500"/> {translations[lang].newStock}</h3>
                       <div className="flex flex-col gap-4 w-full">
-                        <input type="text" placeholder={translations[lang].newItem} value={newInvName} onChange={e => setNewInvName(e.target.value)} className={`w-full p-4 rounded-2xl border-2 font-black outline-none text-xl ${isDarkMode ? 'bg-slate-900 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`} />
+                        <input list="inventory-items-list" type="text" placeholder={translations[lang].newItem} value={newInvName} onChange={e => {
+                            const val = e.target.value;
+                            setNewInvName(val);
+                            // Autocompilazione dei campi se il prodotto esiste già
+                            const existing = items.find(i => (i.name || '').toLowerCase() === val.toLowerCase());
+                            if (existing) {
+                                if (existing.category) setNewInvCategory(existing.category);
+                                if (existing.cartonSize) setNewInvCartonSize(existing.cartonSize.toString());
+                                if (existing.alertThreshold) setNewInvAlert(existing.alertThreshold.toString());
+                            }
+                        }} className={`w-full p-4 rounded-2xl border-2 font-black outline-none text-xl ${isDarkMode ? 'bg-slate-900 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`} />
+                        <datalist id="inventory-items-list">
+                            {items.map(i => <option key={i.id} value={i.name} />)}
+                        </datalist>
                         
                         <div className="flex mobile-stack md:flex-row gap-4 md:gap-3 w-full pt-1">
                           <select value={newInvCategory} onChange={e => setNewInvCategory(e.target.value)} className={`flex-1 min-w-0 p-4 rounded-2xl border-2 font-bold outline-none text-lg ${isDarkMode ? 'bg-slate-900 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}>
@@ -1070,18 +1119,34 @@
                           </div>
                         </div>
                         
+                        <div className="flex bg-slate-200 dark:bg-slate-700 p-1.5 rounded-2xl mt-2 mb-1 shadow-inner w-full sm:w-auto self-start">
+                            <button onClick={()=>{setStockInputMode('pezzi');}} className={`flex-1 px-5 py-2.5 rounded-xl font-black text-sm transition-all ${stockInputMode==='pezzi' ? 'bg-white dark:bg-slate-800 shadow-sm text-emerald-600' : 'text-slate-500'}`}>{translations[lang].modePcs}</button>
+                            <button onClick={()=>{setStockInputMode('cartoni');}} className={`flex-1 px-5 py-2.5 rounded-xl font-black text-sm transition-all ${stockInputMode==='cartoni' ? 'bg-white dark:bg-slate-800 shadow-sm text-emerald-600' : 'text-slate-500'}`}>{translations[lang].modeCartons}</button>
+                        </div>
+
                         <div className="flex mobile-stack md:flex-row gap-4 md:gap-3 w-full pt-1">
                           <div className="flex-[1] min-w-0 relative mt-4 md:mt-0">
                             <span className={`absolute -top-4 left-3 px-2 text-base md:text-lg font-black text-orange-600 dark:text-orange-400 ${isDarkMode ? 'bg-[#0f172a]' : 'bg-white'}`}>{translations[lang].alertPz}</span>
                             <input type="number" value={newInvAlert} onChange={e => setNewInvAlert(e.target.value)} className={`w-full p-4 rounded-2xl border-2 text-center font-bold outline-none text-lg bg-orange-50 dark:bg-slate-800 border-orange-200 dark:border-orange-500/50 text-orange-700 dark:text-orange-400`} />
                           </div>
-                          <div className="flex-[1] min-w-0 relative mt-4 md:mt-0">
-                            <span className={`absolute -top-4 left-3 px-2 text-base md:text-lg font-black text-emerald-600 dark:text-emerald-400 ${isDarkMode ? 'bg-[#0f172a]' : 'bg-white'}`}>{translations[lang].totalPz}</span>
-                            <input type="number" value={newInvQty} onChange={e => setNewInvQty(e.target.value)} className={`w-full p-4 rounded-2xl border-2 text-center font-bold outline-none text-lg bg-emerald-50 dark:bg-slate-800 border-emerald-200 dark:border-emerald-500/50 text-emerald-700 dark:text-emerald-400`} />
-                          </div>
+                          
+                          {stockInputMode === 'pezzi' ? (
+                              <div className="flex-[1] min-w-0 relative mt-4 md:mt-0">
+                                <span className={`absolute -top-4 left-3 px-2 text-base md:text-lg font-black text-emerald-600 dark:text-emerald-400 ${isDarkMode ? 'bg-[#0f172a]' : 'bg-white'}`}>{translations[lang].totalPz}</span>
+                                <input type="number" value={newInvQty} onChange={e => setNewInvQty(e.target.value)} className={`w-full p-4 rounded-2xl border-2 text-center font-bold outline-none text-lg bg-emerald-50 dark:bg-slate-800 border-emerald-200 dark:border-emerald-500/50 text-emerald-700 dark:text-emerald-400`} />
+                              </div>
+                          ) : (
+                              <div className="flex-[1] min-w-0 relative mt-4 md:mt-0">
+                                <span className={`absolute -top-4 left-3 px-2 text-base md:text-lg font-black text-emerald-600 dark:text-emerald-400 ${isDarkMode ? 'bg-[#0f172a]' : 'bg-white'}`}>{translations[lang].numCartons}</span>
+                                <input type="number" value={newInvCartons} onChange={e => setNewInvCartons(e.target.value)} className={`w-full p-4 rounded-2xl border-2 text-center font-bold outline-none text-lg bg-emerald-50 dark:bg-slate-800 border-emerald-200 dark:border-emerald-500/50 text-emerald-700 dark:text-emerald-400`} />
+                                {newInvCartons && newInvCartonSize && (
+                                    <p className="absolute -bottom-6 left-2 text-sm font-black text-emerald-600 dark:text-emerald-400">= {(parseInt(newInvCartons)||0)*(parseInt(newInvCartonSize)||10)} pz totali</p>
+                                )}
+                              </div>
+                          )}
                         </div>
 
-                        <div className="flex mobile-stack md:flex-row gap-4 md:gap-3 w-full items-end pt-1">
+                        <div className="flex mobile-stack md:flex-row gap-4 md:gap-3 w-full items-end pt-3">
                           <div className="flex-[1] min-w-0 relative w-full mt-4 md:mt-0">
                             <span className={`absolute -top-4 left-3 px-2 text-base md:text-lg font-black text-slate-500 dark:text-slate-400 ${isDarkMode ? 'bg-[#0f172a]' : 'bg-white'}`}>Lotto (Opz.)</span>
                             <input type="text" value={newInvLotto} onChange={e => setNewInvLotto(e.target.value)} className={`w-full p-4 rounded-2xl border-2 font-bold outline-none text-base ${isDarkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'}`} />
@@ -1124,7 +1189,6 @@
                         const assignedLotsQty = validLots.reduce((sum, l) => sum + (parseInt(l.qty) || 0), 0);
                         const unassignedQty = Math.max(0, stock - assignedLotsQty);
 
-                        // Calcolo dinamico per cifre grandi
                         let stockTextSize = 'text-5xl md:text-6xl tracking-tight font-black';
                         if (stock.toString().length > 5) stockTextSize = 'text-2xl md:text-3xl tracking-tighter font-black';
                         else if (stock.toString().length > 3) stockTextSize = 'text-3xl md:text-4xl tracking-tighter font-black';
@@ -1154,6 +1218,13 @@
                                <input type="checkbox" checked={editFormData.hasNoLots || false} onChange={e => setEditFormData({...editFormData, hasNoLots: e.target.checked})} className="w-6 h-6 flex-shrink-0 accent-emerald-600" id={`nolot-${item.id}`} />
                                <label htmlFor={`nolot-${item.id}`} className="font-bold text-slate-700 dark:text-slate-300 text-sm md:text-lg">{translations[lang].noLotsMode}</label>
                             </div>
+                            
+                            {/* TEXTAREA NOTA PRODOTTO */}
+                            <div className="relative mt-4 w-full">
+                                <span className={`absolute -top-3.5 left-2 px-2 text-sm md:text-base font-black text-yellow-600 dark:text-yellow-400 ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>Nota Prodotto (Post-it)</span>
+                                <textarea value={editFormData.productNote || ''} onChange={e => setEditFormData({...editFormData, productNote: e.target.value})} className={`w-full p-4 rounded-xl border-2 font-bold border-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-900 dark:text-yellow-100 outline-none`} rows="2" placeholder="Scrivi un appunto visibile sotto il prodotto..."></textarea>
+                            </div>
+
                             <div className="flex gap-2 mt-4 w-full">
                                 <button onClick={saveEditedItem} className="flex-[3] bg-[#3b82f6] text-white py-4 rounded-2xl font-black text-xl flex items-center justify-center gap-2 shadow-md"><Save className="w-6 h-6"/> {translations[lang].saveBtn}</button>
                                 <button onClick={() => setItemToDelete(item)} className="flex-[1] bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 border border-red-200 dark:border-red-800 py-4 rounded-2xl font-black flex items-center justify-center shadow-md hover:bg-red-200 transition-colors"><Trash2 className="w-6 h-6"/></button>
@@ -1171,7 +1242,7 @@
                                         {(item.name || 'Senza Nome').toUpperCase()}
                                       </h3>
                                       <button 
-                                        onClick={() => { setEditingItemId(item.id); setEditFormData({ name: item.name, cartonSize: cSize, piecesPerPack: pPack, totalStock: stock, alertThreshold: item.alertThreshold, isToOrder: item.isToOrder || false, excludeFromSamples: item.excludeFromSamples || false, hasNoLots: item.hasNoLots || false, incoming: item.incoming||0, incomingDate: item.incomingDate||'', orderDate: item.orderDate||'', orderConfirmed: item.orderConfirmed||false }); }} 
+                                        onClick={() => { setEditingItemId(item.id); setEditFormData({ name: item.name, cartonSize: cSize, piecesPerPack: pPack, totalStock: stock, alertThreshold: item.alertThreshold, isToOrder: item.isToOrder || false, excludeFromSamples: item.excludeFromSamples || false, hasNoLots: item.hasNoLots || false, incoming: item.incoming||0, incomingDate: item.incomingDate||'', orderDate: item.orderDate||'', orderConfirmed: item.orderConfirmed||false, productNote: item.productNote || '' }); }} 
                                         className="p-2 bg-slate-200/60 dark:bg-slate-700 rounded-full flex-shrink-0 hover:bg-blue-100 text-slate-500 hover:text-[#3b82f6] transition-colors mt-0.5"
                                         title="Modifica prodotto"
                                       >
@@ -1184,6 +1255,12 @@
                                         {isLow && <span className="text-red-700 font-black text-sm md:text-base tracking-wider bg-red-100 dark:bg-red-900/60 px-3 py-1.5 rounded-lg border border-red-300 flex items-center gap-1"><AlertTriangle className="w-4 h-4"/> {translations[lang].scortaBassa}</span>}
                                         {item.isToOrder && <span className="text-orange-700 font-black text-sm tracking-wider bg-orange-100 px-3 py-1.5 rounded-lg border border-orange-300 flex items-center gap-1"><ShoppingCart className="w-4 h-4"/> {translations[lang].inLista}</span>}
                                         {(parseInt(item.incoming) > 0) && <span className="text-emerald-700 font-black text-sm tracking-wider bg-emerald-100 dark:bg-emerald-900/60 px-3 py-1.5 rounded-lg border border-emerald-300 flex items-center gap-1"><Truck className="w-4 h-4"/> {translations[lang].inArrivo}: {item.incoming} pz</span>}
+                                        
+                                        {item.lastModified && (
+                                            <span className="text-[11px] sm:text-xs font-black text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center gap-1">
+                                                <Clock className="w-3.5 h-3.5"/> {translations[lang].lastMod} {new Date(item.lastModified).toLocaleDateString('it-IT')}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
 
@@ -1193,6 +1270,16 @@
                                     </p>
                                     <p className="text-2xl md:text-3xl font-black text-emerald-600 flex items-center gap-2 break-words"><ShoppingBag className="w-7 h-7 flex-shrink-0" /> <span>{confVendibili} {translations[lang].confezioni}</span></p>
                                 </div>
+
+                                {/* POST-IT NOTA PRODOTTO IN VISUALIZZAZIONE */}
+                                {item.productNote && item.productNote.trim() !== '' && (
+                                    <div className="mt-4 bg-yellow-100 dark:bg-yellow-900/40 border-l-4 border-yellow-400 p-3 md:p-4 rounded-r-xl shadow-sm relative w-full">
+                                        <StickyNote className="absolute top-3 right-3 w-5 h-5 text-yellow-500 opacity-40" />
+                                        <p className="font-bold text-yellow-900 dark:text-yellow-100 whitespace-pre-wrap pr-8 text-sm md:text-base leading-snug">
+                                            {item.productNote}
+                                        </p>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="w-full md:w-[330px] shrink-0 flex flex-col gap-3 justify-end mt-4 md:mt-0">
@@ -1200,7 +1287,7 @@
                                 <div className="flex items-center justify-between w-full bg-slate-100 dark:bg-slate-900 p-2 md:p-3 rounded-3xl border-2 border-slate-300 dark:border-slate-700 shadow-inner">
                                     <button onClick={() => handleQuickStock(item, -cSize)} className="shrink-0 px-3 py-4 md:p-4 bg-white hover:bg-slate-200 dark:bg-slate-800 rounded-2xl text-red-600 shadow-md active:scale-95 transition-transform"><Minus className="w-8 h-8 font-black"/></button>
                                     <div className="text-center flex flex-col items-center justify-center flex-1 px-1 overflow-hidden">
-                                       <span className={`${stockTextSize} text-slate-900 dark:text-white leading-none break-words w-full transition-all`}>{stock}</span>
+                                        <span className={`${stockTextSize} text-slate-900 dark:text-white leading-none break-words w-full transition-all`}>{stock}</span>
                                     </div>
                                     <button onClick={() => handleQuickStock(item, cSize)} className="shrink-0 px-3 py-4 md:p-4 bg-white hover:bg-slate-200 dark:bg-slate-800 rounded-2xl text-green-600 shadow-md active:scale-95 transition-transform"><Plus className="w-8 h-8 font-black"/></button>
                                 </div>
@@ -1254,6 +1341,7 @@
                   </div>
                 )}
 
+                {}
                 {/* --- ORDINI --- */}
                 {currentView === 'ordini' && (
                   <div className="space-y-6 w-full animate-fade-in">
@@ -1309,7 +1397,8 @@
                                               incoming: 0,
                                               incomingDate: "",
                                               orderDate: "",
-                                              orderConfirmed: false
+                                              orderConfirmed: false,
+                                              lastModified: Date.now()
                                             });
                                             setEditingItemId(null);
                                             addLog(`Annullato stato ordine per: ${item.name}`, 'edit');
@@ -1367,7 +1456,7 @@
                                        </div>
                                     )}
                                     
-                                    <button onClick={() => { setEditingItemId(item.id); setEditFormData({ name: item.name, cartonSize: parseInt(item.cartonSize) || 10, piecesPerPack: parseInt(item.piecesPerPack) || 1, totalStock: parseInt(item.stock) || 0, alertThreshold: item.alertThreshold, incoming: item.incoming || 0, incomingDate: item.incomingDate || '', orderDate: item.orderDate || new Date().toISOString().split('T')[0], isToOrder: true, excludeFromSamples: item.excludeFromSamples || false, hasNoLots: item.hasNoLots || false, orderConfirmed: item.orderConfirmed || false }); }} className={`mt-4 font-black text-sm flex items-center justify-center gap-2 px-5 py-3 rounded-xl border shadow-sm transition-colors w-full sm:w-auto ${isOrdered ? 'bg-emerald-200 border-emerald-400 text-emerald-800 dark:bg-emerald-700 dark:border-emerald-600 dark:text-white hover:bg-emerald-300' : 'bg-slate-100 border-slate-300 text-slate-700 dark:bg-slate-700 dark:text-white hover:bg-slate-200'}`}>
+                                    <button onClick={() => { setEditingItemId(item.id); setEditFormData({ name: item.name, cartonSize: parseInt(item.cartonSize) || 10, piecesPerPack: parseInt(item.piecesPerPack) || 1, totalStock: parseInt(item.stock) || 0, alertThreshold: item.alertThreshold, incoming: item.incoming || 0, incomingDate: item.incomingDate || '', orderDate: item.orderDate || new Date().toISOString().split('T')[0], isToOrder: true, excludeFromSamples: item.excludeFromSamples || false, hasNoLots: item.hasNoLots || false, orderConfirmed: item.orderConfirmed || false, productNote: item.productNote || '' }); }} className={`mt-4 font-black text-sm flex items-center justify-center gap-2 px-5 py-3 rounded-xl border shadow-sm transition-colors w-full sm:w-auto ${isOrdered ? 'bg-emerald-200 border-emerald-400 text-emerald-800 dark:bg-emerald-700 dark:border-emerald-600 dark:text-white hover:bg-emerald-300' : 'bg-slate-100 border-slate-300 text-slate-700 dark:bg-slate-700 dark:text-white hover:bg-slate-200'}`}>
                                         <Pencil className="w-5 h-5" /> {isOrdered ? translations[lang].modificaOrdine : translations[lang].registraOrdine}
                                     </button>
                                 </div>
@@ -1409,6 +1498,7 @@
                   </div>
                 )}
 
+                {}
                 {/* --- STORICO GENERALE --- */}
                 {currentView === 'history' && (
                   <div className="space-y-4 w-full animate-fade-in">
@@ -1436,13 +1526,13 @@
                   </div>
                 )}
 
+                {}
                 {/* --- CAMPIONI DASHBOARD --- */}
                 {currentView === 'dashboard' && (
                   <div className="space-y-4 w-full">
                      <div className={`p-5 rounded-3xl border-2 flex flex-col gap-4 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
                        <h2 className="text-2xl font-black uppercase text-[#3b82f6]">{translations[lang].sampleOutflows}</h2>
                        
-                       {/* TASTI SUPERIORI CON SCROLLBAR INTELLIGENTE */}
                        <div className="flex gap-3 w-full overflow-x-auto custom-scrollbar flex-nowrap pb-3">
                            <button onClick={() => setCurrentView('informatori')} className="shrink-0 flex-1 min-w-[130px] bg-slate-200 dark:bg-slate-700 p-4 rounded-2xl font-black flex items-center justify-center gap-2 shadow-sm"><Users className="w-5 h-5" /> {translations[lang].directory}</button>
                            <button onClick={() => setCurrentView('congressi')} className="shrink-0 flex-1 min-w-[130px] bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 p-4 rounded-2xl font-black flex items-center justify-center gap-2 shadow-sm"><MapPin className="w-5 h-5" /> {translations[lang].congresses}</button>
@@ -1502,7 +1592,6 @@
                             <h3 className="font-black text-sm uppercase tracking-widest text-slate-500">{translations[lang].selectProducts}</h3>
                         </div>
                         
-                        {/* BARRA DI RICERCA CAMPIONI */}
                         <div className="relative mb-3 w-full min-w-0">
                             <Search className="absolute left-3 top-3.5 w-5 h-5 opacity-40 text-slate-900 dark:text-white" />
                             <input 
@@ -1550,6 +1639,7 @@
                   </div>
                 )}
 
+                {}
                 {/* --- RUBRICA INFORMATORI --- */}
                 {currentView === 'informatori' && (
                   <div className="space-y-4 w-full">
@@ -1689,6 +1779,7 @@
                   )
                 })()}
 
+                {}
                 {/* --- NOTE CON TENDINA --- */}
                 {currentView === 'notes' && (
                   <div className="space-y-4 w-full animate-fade-in">
@@ -1815,6 +1906,7 @@
 
               </main>
 
+              {}
               {/* MODAL: ELIMINA PRODOTTO */}
               {itemToDelete && (
                   <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6">
