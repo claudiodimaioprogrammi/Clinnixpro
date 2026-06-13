@@ -88,18 +88,7 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'https://esm.sh/firebase/auth';
         import { getFirestore, collection, doc, setDoc, onSnapshot, updateDoc, deleteDoc, addDoc, writeBatch, getDocs } from 'https://esm.sh/firebase/firestore';
 
- const firebaseConfig = {
-          apiKey: "AIzaSyC87guNYohB7qgoWLxeuKHTaRJgDrEeZtw",
-          authDomain: "clinnixpro.firebaseapp.com",
-          projectId: "clinnixpro",
-          storageBucket: "clinnixpro.firebasestorage.app",
-          messagingSenderId: "292920536492",
-          appId: "1:292920536492:web:4883961a12a203e634de09"
-        };
-
-        // Configurazione dinamica
-        const isCanvasEnv = typeof __firebase_config !== 'undefined';
-        const firebaseConfig = isCanvasEnv ? JSON.parse(__firebase_config) : {
+        const firebaseConfig = {
           apiKey: "AIzaSyC87guNYohB7qgoWLxeuKHTaRJgDrEeZtw",
           authDomain: "clinnixpro.firebaseapp.com",
           projectId: "clinnixpro",
@@ -111,7 +100,7 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'clinnix-pro-v1';
+        const appId = 'clinnix-pro-v1';
         
         // PERCORSO DINAMICO
         const basePath = isCanvasEnv ? ['artifacts', appId, 'public', 'data'] : [];
