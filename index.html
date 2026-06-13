@@ -88,7 +88,7 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'https://esm.sh/firebase/auth';
         import { getFirestore, collection, doc, setDoc, onSnapshot, updateDoc, deleteDoc, addDoc, writeBatch, getDocs } from 'https://esm.sh/firebase/firestore';
 
-        const firebaseConfig = {
+ const firebaseConfig = {
           apiKey: "AIzaSyC87guNYohB7qgoWLxeuKHTaRJgDrEeZtw",
           authDomain: "clinnixpro.firebaseapp.com",
           projectId: "clinnixpro",
@@ -96,11 +96,6 @@
           messagingSenderId: "292920536492",
           appId: "1:292920536492:web:4883961a12a203e634de09"
         };
-  
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = 'clinnix-pro-v1';
 
         // Configurazione dinamica
         const isCanvasEnv = typeof __firebase_config !== 'undefined';
