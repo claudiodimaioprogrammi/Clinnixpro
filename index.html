@@ -85,7 +85,7 @@
         import { Package, Truck, CheckCircle, Plus, ArrowLeft, Trash2, ClipboardList, Save, AlertTriangle, Pencil, X, Moon, Sun, Search, Download, StickyNote, Layers, Box, Minus, Clock, Activity, ShoppingBag, Users, Briefcase, ShoppingCart, Calculator, MessageCircle, Globe, History, MapPin, ChevronDown, ChevronUp, EyeOff, Printer } from 'https://esm.sh/lucide-react@0.294.0';
         
         import { initializeApp } from 'https://esm.sh/firebase/app';
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'https://esm.sh/firebase/auth';
+        import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://esm.sh/firebase/auth';
         import { getFirestore, collection, doc, setDoc, onSnapshot, updateDoc, deleteDoc, addDoc, writeBatch, getDocs } from 'https://esm.sh/firebase/firestore';
 
         const firebaseConfig = {
@@ -101,9 +101,6 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
         const appId = 'clinnix-pro-v1';
-        
-        // PERCORSO DINAMICO
-        const basePath = isCanvasEnv ? ['artifacts', appId, 'public', 'data'] : [];
 
         const translations = {
           it: {
@@ -588,56 +585,106 @@
               return diffTime > 0 ? Math.floor(diffTime / (1000 * 60 * 60 * 24)) : 0;
           };
 
-          // ACCESSO AUTOMATICO E FALLBACK
+          // Funzione per mostrare un testo pulito per "L-Nuovo"
+          const cleanLotId = (id) => {
+              if (!id) return '';
+              if (id.toString().startsWith('0.')) return '';
+              if (id === 'L-Nuovo') return 'Senza Lotto';
+              return id;
+          };
+
+          // --- LOGICA DI FORMATTAZIONE AUTOMATICA (Auto-Slash & Limite Cifre) ---
+          const formatExpiryInput = (val) => {
+              if (!val) return '';
+              // Rimuove tutto ciò che non è un numero
+              let digits = val.replace(/\D/g, ''); 
+              // Blocca l'inserimento oltre i 6 numeri (corrispondenti a GG/MM/AA)
+              digits = digits.substring(0, 6); 
+
+              if (digits.length <= 2) {
+                  return digits;
+              } else if (digits.length <= 4) {
+                  // Mette lo slash dopo i primi 2 numeri
+                  return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+              } else {
+                  // Mette lo slash ogni 2 numeri (per GG/MM/AA)
+                  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+              }
+          };
+
+          // --- LOGICA DI PARSING DELLE DATE (MM/AA o GG/MM/AA in Millisecondi) ---
+          const parseDateToMs = (dateStr) => {
+            if (!dateStr || dateStr === '-') return Infinity;
+            
+            // Se è nel formato standard YYYY-MM-DD (es. input type date vecchio)
+            if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+                return new Date(dateStr).getTime();
+            }
+            
+            const parts = dateStr.split('/');
+            if (parts.length === 2) {
+              const month = parseInt(parts[0], 10) - 1; 
+              const yearPart = parseInt(parts[1], 10);
+              const year = yearPart < 100 ? 2000 + yearPart : yearPart;
+              return new Date(year, month, 1).getTime();
+            } else if (parts.length === 3) {
+              const day = parseInt(parts[0], 10);
+              const month = parseInt(parts[1], 10) - 1;
+              const yearPart = parseInt(parts[2], 10);
+              const year = yearPart < 100 ? 2000 + yearPart : yearPart;
+              return new Date(year, month, day).getTime();
+            }
+            return Infinity; 
+          };
+
+          // Formattazione data visiva
+          const formatDateStr = (dateStr) => {
+              if (!dateStr || dateStr === '-') return '-';
+              // Converte vecchio formato YYYY-MM-DD in GG/MM/AA per mantenere la pulizia
+              if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+                  const [y, m, d] = dateStr.split('-');
+                  return `${d}/${m}/${y.slice(2)}`;
+              }
+              return dateStr; 
+          };
+
+          // ACCESSO AUTOMATICO
           useEffect(() => {
             const initAuth = async () => {
-              try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                  await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                  await signInAnonymously(auth);
-                }
-              } catch(e) { 
-                console.error("Auth error:", e); 
-              }
+              try { await signInAnonymously(auth); } catch(e) { console.error("Auth error:", e); }
             };
             initAuth();
-            const unsubscribe = onAuthStateChanged(auth, (u) => {
-                if (u) {
-                    setUser(u);
-                } else {
-                    setUser({ uid: 'fallback-local-user' });
-                }
-            });
+            const unsubscribe = onAuthStateChanged(auth, setUser);
             return () => unsubscribe();
           }, []);
 
-          // SINCRONIZZAZIONE DATI
           useEffect(() => {
             if (!user || !isAuthenticated) return;
+            console.log("Inizio sincronizzazione Firebase per appId:", appId);
+            const base = ['artifacts', appId, 'public', 'data'];
             
             const unsub = [
-              onSnapshot(collection(db, ...basePath, 'shipments'), s => {
+              onSnapshot(collection(db, ...base, 'shipments'), s => {
                 setShipments(s.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (b.createdAt||0) - (a.createdAt||0)));
               }, (err) => console.error("Errore Firebase 'shipments':", err)),
               
-              onSnapshot(collection(db, ...basePath, 'items'), s => {
+              onSnapshot(collection(db, ...base, 'items'), s => {
                 setItems(s.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (a.name||'').localeCompare(b.name||'')));
               }, (err) => console.error("Errore Firebase 'items':", err)),
               
-              onSnapshot(collection(db, ...basePath, 'notes'), s => {
+              onSnapshot(collection(db, ...base, 'notes'), s => {
                 setNotes(s.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (b.createdAt||0) - (a.createdAt||0)));
               }, (err) => console.error("Errore Firebase 'notes':", err)),
               
-              onSnapshot(collection(db, ...basePath, 'logs'), s => {
+              onSnapshot(collection(db, ...base, 'logs'), s => {
                 setLogs(s.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (b.date||0) - (a.date||0)));
               }, (err) => console.error("Errore Firebase 'logs':", err)),
               
-              onSnapshot(collection(db, ...basePath, 'informatori'), s => {
+              onSnapshot(collection(db, ...base, 'informatori'), s => {
                 setInformatori(s.docs.map(d => ({id: d.id, ...d.data()})));
               }, (err) => console.error("Errore Firebase 'informatori':", err)),
 
-              onSnapshot(collection(db, ...basePath, 'congressi'), s => {
+              onSnapshot(collection(db, ...base, 'congressi'), s => {
                 setCongressi(s.docs.map(d => ({id: d.id, ...d.data()})));
               }, (err) => console.error("Errore Firebase 'congressi':", err))
             ];
@@ -656,6 +703,7 @@
               
               const handlePopState = () => {
                   const s = stateRef.current;
+                  // 1. Chiudi tutti i modali aperti
                   if (s.showCalc) { setShowCalc(false); window.history.pushState({ trapped: true }, '', window.location.href); return; }
                   if (s.itemToDelete) { setItemToDelete(null); window.history.pushState({ trapped: true }, '', window.location.href); return; }
                   if (s.showClearLogsModal) { setShowClearLogsModal(false); window.history.pushState({ trapped: true }, '', window.location.href); return; }
@@ -664,6 +712,7 @@
                   if (s.editingItemId) { setEditingItemId(null); window.history.pushState({ trapped: true }, '', window.location.href); return; }
                   if (s.editingNoteId) { setEditingNoteId(null); setNoteText(''); setNoteSubject(''); window.history.pushState({ trapped: true }, '', window.location.href); return; }
 
+                  // 2. Se sei in una sottomaschera
                   if (['new', 'informatori', 'congressi'].includes(s.currentView)) {
                       setCurrentView('dashboard');
                       window.history.pushState({ trapped: true }, '', window.location.href);
@@ -675,6 +724,7 @@
                       return;
                   }
 
+                  // 3. Logica doppio tap per uscire
                   if (s.showExitWarning) {
                       clearTimeout(exitTimeout.current);
                       setShowExitWarning(false);
@@ -700,69 +750,36 @@
 
           const addLog = async (text, type) => {
             if (!user || !isAuthenticated) return;
-            try { await addDoc(collection(db, ...basePath, 'logs'), { text, type, date: Date.now() }); } catch(e) {}
+            try { await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'logs'), { text, type, date: Date.now() }); } catch(e) {}
           };
 
           const handleClearAllLogs = async () => {
-              const querySnapshot = await getDocs(collection(db, ...basePath, 'logs'));
+              const querySnapshot = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'logs'));
               const batch = writeBatch(db);
               querySnapshot.forEach((doc) => batch.delete(doc.ref));
               await batch.commit();
               setShowClearLogsModal(false);
           };
 
-          // --- FUNZIONI DI FORMATTAZIONE E ORDINAMENTO SCADENZA ---
-          const formatExpiryDate = (val) => {
-              if (!val) return '';
-              let v = val.replace(/\D/g, '');
-              
-              // Se l'utente digita MM20YY o MM21YY (es. 102027), lo convertiamo in MM/YY (10/27)
-              if (v.length === 6 && (v.substring(2, 4) === '20' || v.substring(2, 4) === '21')) {
-                  v = v.substring(0, 2) + v.substring(4, 6);
-              }
-
-              if (v.length > 4) {
-                  // Formato esteso DD/MM/YY
-                  return v.substring(0, 2) + '/' + v.substring(2, 4) + '/' + v.substring(4, 6);
-              } else if (v.length > 2) {
-                  // Formato base MM/YY
-                  return v.substring(0, 2) + '/' + v.substring(2, 4);
-              }
-              return v;
-          };
-
-          const parseExpiryForSort = (exp) => {
-              if (!exp || exp === '-' || exp.toLowerCase().includes('scad')) return Infinity; 
-              let parts = String(exp).split(/[\/\-\.]/);
-              if (parts.length === 2) {
-                  let m = parseInt(parts[0], 10);
-                  let y = parseInt(parts[1], 10);
-                  if (!isNaN(m) && !isNaN(y)) {
-                      if (y < 100) y += 2000;
-                      return new Date(y, m - 1, 1).getTime();
-                  }
-              } else if (parts.length === 3) {
-                  let d = parseInt(parts[0], 10);
-                  let m = parseInt(parts[1], 10);
-                  let y = parseInt(parts[2], 10);
-                  if (parts[0].length === 4) { y = parseInt(parts[0], 10); d = parseInt(parts[2], 10); }
-                  if (!isNaN(d) && !isNaN(m) && !isNaN(y)) {
-                      if (y < 100) y += 2000;
-                      return new Date(y, m - 1, d).getTime();
-                  }
-              }
-              const d = new Date(exp).getTime();
-              return isNaN(d) ? Infinity : d;
-          };
-
+          // LOGICA SCALO QUANTITÀ CON ORDINAMENTO INTELLIGENTE
           const updateLotsLogic = (lotsArray, change) => {
             if (!Array.isArray(lotsArray) || lotsArray.length === 0) return [];
             let updatedLots = JSON.parse(JSON.stringify(lotsArray));
+            
             if (change < 0) {
-              // 1. Ordina i lotti per data di scadenza (dalla più vicina alla più lontana)
-              updatedLots.sort((a, b) => parseExpiryForSort(a.expiry) - parseExpiryForSort(b.expiry));
-              
-              // 2. Scala i pezzi partendo dal primo della lista (quello che scade prima)
+              updatedLots.sort((a, b) => {
+                  const aSenzaLotto = !a.id || a.id.trim() === '' || a.id === 'L-Nuovo';
+                  const bSenzaLotto = !b.id || b.id.trim() === '' || b.id === 'L-Nuovo';
+
+                  if (aSenzaLotto && !bSenzaLotto) return -1;
+                  if (!aSenzaLotto && bSenzaLotto) return 1;
+
+                  const dataA = parseDateToMs(a.expiry);
+                  const dataB = parseDateToMs(b.expiry);
+
+                  return dataA - dataB;
+              });
+
               let rem = Math.abs(change);
               for (let l of updatedLots) {
                 if (rem <= 0) break;
@@ -771,6 +788,7 @@
                 rem -= take;
               }
               return updatedLots.filter(l => (parseInt(l.qty) || 0) > 0);
+              
             } else if (change > 0) {
               if (updatedLots.length > 0) updatedLots[0].qty = (parseInt(updatedLots[0].qty) || 0) + change; 
               return updatedLots;
@@ -808,7 +826,7 @@
                     }
                 }
                 
-                await updateDoc(doc(db, ...basePath, 'items', existingItem.id), { 
+                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'items', existingItem.id), { 
                     stock: newStock,
                     lots: newLots,
                     lastModified: Date.now() 
@@ -825,7 +843,7 @@
                   excludeFromSamples: false, hasNoLots: false, orderConfirmed: false, productNote: '',
                   lastModified: Date.now()
                 };
-                await addDoc(collection(db, ...basePath, 'items'), { ...data, createdAt: Date.now() });
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'items'), { ...data, createdAt: Date.now() });
                 addLog(`Rifornimento: ${nameToSave} (+${qtyToAdd} pz)`, 'restock');
             }
             
@@ -849,7 +867,7 @@
                 newLots = updateLotsLogic(newLots, -amountToRemoveFromLots);
             }
             
-            await updateDoc(doc(db, ...basePath, 'items', item.id), { stock: newStock, lots: newLots, lastModified: Date.now() });
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'items', item.id), { stock: newStock, lots: newLots, lastModified: Date.now() });
             addLog(`${item.name || 'Prodotto'}: ${actualChange > 0 ? '+' : ''}${actualChange} pz`, actualChange > 0 ? 'add' : 'remove');
           };
 
@@ -890,12 +908,12 @@
                   addLog(`Modifica manuale ${updateData.name || existing.name || 'Prodotto'}: a ${newStock} pz`, 'edit');
                 }
             }
-            await updateDoc(doc(db, ...basePath, 'items', editingItemId), updateData);
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'items', editingItemId), updateData);
             setEditingItemId(null);
           };
 
           const handleCancelOrder = async (item) => {
-              await updateDoc(doc(db, ...basePath, 'items', item.id), { 
+              await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'items', item.id), { 
                   isToOrder: false,
                   incoming: 0,
                   incomingDate: "",
@@ -921,7 +939,7 @@
 
             if (itemsToShip.length === 0) return;
             
-            await setDoc(doc(db, ...basePath, 'shipments', id), { 
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shipments', id), { 
                 destination: newDest, 
                 region: newRegion.trim(), 
                 items: itemsToShip, 
@@ -943,18 +961,18 @@
             const existingInfo = targetList.find(i => (i.name || '').toLowerCase() === newDest.toLowerCase());
             if (existingInfo) {
               if (newRegion && existingInfo.region !== newRegion.trim()) {
-                await updateDoc(doc(db, ...basePath, targetCollection, existingInfo.id), { region: newRegion.trim() });
+                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', targetCollection, existingInfo.id), { region: newRegion.trim() });
               }
             } else {
-              await addDoc(collection(db, ...basePath, targetCollection), { name: newDest.trim(), region: newRegion.trim() });
+              await addDoc(collection(db, 'artifacts', appId, 'public', 'data', targetCollection), { name: newDest.trim(), region: newRegion.trim() });
             }
             setCurrentView('dashboard'); setNewDest(''); setNewRegion(''); setSampleQuantities({}); setSampleSearch(''); setExtraItems([{ id: 'init', name: '', qty: '' }]);
           };
 
           const handleSaveNote = async () => {
             if (!noteText.trim() && !noteSubject.trim()) return; 
-            if (editingNoteId) { await updateDoc(doc(db, ...basePath, 'notes', editingNoteId), { subject: noteSubject.trim() || 'Senza Oggetto', text: noteText.trim(), updatedAt: Date.now() }); setEditingNoteId(null); }
-            else { await addDoc(collection(db, ...basePath, 'notes'), { subject: noteSubject.trim() || 'Senza Oggetto', text: noteText.trim(), createdAt: Date.now() }); }
+            if (editingNoteId) { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'notes', editingNoteId), { subject: noteSubject.trim() || 'Senza Oggetto', text: noteText.trim(), updatedAt: Date.now() }); setEditingNoteId(null); }
+            else { await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'notes'), { subject: noteSubject.trim() || 'Senza Oggetto', text: noteText.trim(), createdAt: Date.now() }); }
             setNoteText(''); setNoteSubject('');
           };
 
@@ -981,12 +999,6 @@
               toOrder.forEach(i => { msg += `🔸 *${i.name || 'Prodotto'}* (Giacenza: ${i.stock} pz)\n`; });
               window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
               setShowWhatsAppModal(false);
-          };
-          
-          const cleanLotId = (id) => {
-              if (!id) return '';
-              if (id.toString().startsWith('0.')) return '';
-              return id;
           };
 
           const handleExportExcel = () => {
@@ -1145,10 +1157,11 @@
 
               <main className="max-w-4xl mx-auto p-3 md:p-5 w-full">
                 
+                {}
                 {/* --- MAGAZZINO --- */}
                 {currentView === 'inventory' && (
                   <div className="space-y-4 w-full">
-                    <div className={`mt-2 p-4 md:p-5 rounded-3xl border w-full overflow-hidden ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200 shadow-sm'}`}>
+                    <div className={`mt-2 p-4 md:p-5 rounded-3xl border w-full overflow-hidden ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300 shadow-sm'}`}>
                       <h3 className="font-extrabold mb-4 text-slate-800 dark:text-slate-200 uppercase tracking-wide flex items-center gap-2"><Plus className="w-6 h-6 text-emerald-500"/> {translations[lang].newStock}</h3>
                       <div className="flex flex-col gap-4 w-full">
                         <input list="inventory-items-list" type="text" placeholder={translations[lang].newItem} value={newInvName} onChange={e => {
@@ -1210,7 +1223,7 @@
                           </div>
                           <div className="flex-[1] min-w-0 relative w-full mt-4 md:mt-0">
                             <span className={`absolute -top-4 left-3 px-2 text-base md:text-lg font-black text-slate-500 dark:text-slate-400 ${isDarkMode ? 'bg-[#0f172a]' : 'bg-white'}`}>Scadenza (Opz.)</span>
-                            <input type="text" placeholder="MM/AA o GG/MM/AA" value={newInvScadenza} onChange={e => setNewInvScadenza(formatExpiryDate(e.target.value))} className={`w-full p-4 rounded-2xl border-2 font-bold outline-none text-base ${isDarkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'}`} />
+                            <input type="text" placeholder="es. 12/26 o 05/12/26" value={newInvScadenza} onChange={e => setNewInvScadenza(formatExpiryInput(e.target.value))} className={`w-full p-4 rounded-2xl border-2 font-bold outline-none text-base sm:text-lg ${isDarkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} placeholder-slate-400 dark:placeholder-slate-500`} />
                           </div>
                           <button onClick={handleAddNewItem} className="w-full md:flex-[1] mt-2 md:mt-0 bg-emerald-600 hover:bg-emerald-700 text-white p-4 rounded-2xl flex items-center justify-center gap-2 font-black text-lg shadow-md transition-colors md:h-[60px]"><Save className="w-6 h-6" /> {translations[lang].saveBtn}</button>
                         </div>
@@ -1232,13 +1245,6 @@
                     </div>
 
                     <div className="grid grid-cols-1 w-full gap-4 mt-2">
-                      {items.length === 0 && (
-                          <div className="p-8 mt-4 text-center bg-slate-100 dark:bg-slate-800 rounded-3xl border-2 border-dashed border-slate-300 dark:border-slate-700">
-                              <p className="text-xl font-bold text-slate-500 dark:text-slate-400">Nessun prodotto nel magazzino.</p>
-                              <p className="text-sm font-bold text-slate-400 mt-2">Aggiungi il tuo primo articolo dal riquadro in alto!</p>
-                          </div>
-                      )}
-                      
                       {items.filter(i => (inventoryFilter === 'Tutti' || i.category === inventoryFilter) && (i.name || '').toLowerCase().includes(searchQuery.toLowerCase())).map(item => {
                         const isLow = (parseInt(item.stock)||0) <= (parseInt(item.alertThreshold) || 10);
                         const cSize = parseInt(item.cartonSize) || 10;
@@ -1360,7 +1366,7 @@
                                     <div className="bg-white dark:bg-slate-800 rounded-2xl p-3 border-2 border-slate-200 dark:border-slate-600 w-full flex flex-col gap-1">
                                         {validLots.map((l, i) => (
                                             <p key={i} className="text-lg font-black text-slate-800 dark:text-slate-200 break-words flex justify-between items-center">
-                                                <span className="truncate pr-2">{cleanLotId(l.id) ? cleanLotId(l.id) : 'Lotto'} <span className="opacity-70 text-sm">({l.expiry})</span></span>
+                                                <span className="truncate pr-2">{cleanLotId(l.id) ? cleanLotId(l.id) : 'Lotto'} {l.expiry && l.expiry !== '-' && <span className="opacity-70 text-sm">({formatDateStr(l.expiry)})</span>}</span>
                                                 <span className="text-[#3b82f6] shrink-0">{l.qty}pz</span>
                                             </p>
                                         ))}
@@ -1376,14 +1382,26 @@
                                 {!item.hasNoLots ? (
                                     <div className="flex gap-2 w-full mt-1">
                                         <button 
-                                          onClick={() => { setEditingLotsId(item.id); setEditLotsData(Array.isArray(item.lots) ? item.lots : []); }} 
+                                          onClick={() => { 
+                                              setEditingLotsId(item.id); 
+                                              const currentLots = Array.isArray(item.lots) ? item.lots : [];
+                                              // Converti al volo eventuali vecchie date (YYYY-MM-DD) al nuovo formato
+                                              setEditLotsData(currentLots.map(l => {
+                                                  let exp = l.expiry;
+                                                  if (exp && /^\d{4}-\d{2}-\d{2}$/.test(exp)) {
+                                                      const [y, m, d] = exp.split('-');
+                                                      exp = `${d}/${m}/${y.slice(2)}`;
+                                                  }
+                                                  return { ...l, expiry: exp };
+                                              }));
+                                          }} 
                                           className="flex-[2] bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/30 border-2 border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 py-3 rounded-2xl shadow-sm flex items-center justify-center gap-1.5 font-black uppercase text-xs sm:text-sm"
                                         >
                                           <Layers className="w-5 h-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
                                           <span>{translations[lang].lotsTitle}</span>
                                         </button>
                                         <button 
-                                            onClick={async () => await updateDoc(doc(db, ...basePath, 'items', item.id), { isToOrder: !item.isToOrder })} 
+                                            onClick={async () => await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'items', item.id), { isToOrder: !item.isToOrder })} 
                                             className={`flex-1 flex items-center justify-center border-2 rounded-2xl font-black shadow-sm transition-colors ${item.isToOrder ? 'bg-orange-100 border-orange-300 text-orange-700' : 'bg-slate-100 border-slate-300 text-slate-600 hover:bg-orange-50'}`}>
                                             <ShoppingCart className="w-7 h-7"/>
                                         </button>
@@ -1391,7 +1409,7 @@
                                 ) : (
                                     <div className="flex gap-2 w-full mt-1">
                                         <button 
-                                            onClick={async () => await updateDoc(doc(db, ...basePath, 'items', item.id), { isToOrder: !item.isToOrder })} 
+                                            onClick={async () => await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'items', item.id), { isToOrder: !item.isToOrder })} 
                                             className={`w-full flex items-center justify-center gap-2 border-2 rounded-2xl font-black shadow-sm transition-colors py-4 text-xl ${item.isToOrder ? 'bg-orange-100 border-orange-300 text-orange-700' : 'bg-slate-100 border-slate-300 text-slate-600 hover:bg-orange-50'}`}>
                                             <ShoppingCart className="w-6 h-6"/> {item.isToOrder ? translations[lang].inLista : translations[lang].toOrder}
                                         </button>
@@ -1405,6 +1423,7 @@
                   </div>
                 )}
 
+                {}
                 {/* --- ORDINI --- */}
                 {currentView === 'ordini' && (
                   <div className="space-y-6 w-full animate-fade-in">
@@ -1456,7 +1475,7 @@
                                       {isOrdered && (
                                         <button 
                                           onClick={async () => {
-                                            await updateDoc(doc(db, ...basePath, 'items', item.id), {
+                                            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'items', item.id), {
                                               incoming: 0,
                                               incomingDate: "",
                                               orderDate: "",
@@ -1499,7 +1518,7 @@
                                            
                                            <div className="mt-3 pt-3 border-t border-emerald-300/50 dark:border-emerald-700/50 flex w-full">
                                                 <button 
-                                                    onClick={async () => await updateDoc(doc(db, ...basePath, 'items', item.id), { orderConfirmed: !item.orderConfirmed })}
+                                                    onClick={async () => await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'items', item.id), { orderConfirmed: !item.orderConfirmed })}
                                                     className={`w-full py-2.5 px-3 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 border-2 transition-all active:scale-95 ${
                                                         item.orderConfirmed 
                                                           ? 'bg-emerald-600 text-white border-emerald-700 shadow-inner' 
@@ -1546,11 +1565,7 @@
                                     <div className="flex items-center gap-3 ml-3 shrink-0">
                                         <div className="p-2 bg-emerald-100 text-emerald-700 rounded-xl"><CheckCircle className="w-6 h-6"/></div>
                                         <button 
-                                            onClick={async () => {
-                                                if(window.confirm('Vuoi davvero eliminare questo rifornimento?')) {
-                                                    await deleteDoc(doc(db, ...basePath, 'logs', log.id));
-                                                }
-                                            }} 
+                                            onClick={async () => await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'logs', log.id))} 
                                             className="p-2 text-red-500 hover:bg-red-100 dark:hover:bg-red-950/50 rounded-xl transition-colors shrink-0"
                                             title="Rimuovi questo rifornimento"
                                         >
@@ -1565,6 +1580,7 @@
                   </div>
                 )}
 
+                {}
                 {/* --- STORICO GENERALE --- */}
                 {currentView === 'history' && (
                   <div className="space-y-4 w-full animate-fade-in">
@@ -1583,19 +1599,16 @@
                                <p className="font-black text-xl leading-tight break-words">{log.text}</p>
                                <p className="text-sm opacity-60 font-bold mt-1 uppercase tracking-wider">{new Date(log.date).toLocaleString('it-IT')}</p>
                            </div>
-                           <button onClick={async () => {
-                               if(window.confirm('Vuoi davvero eliminare questo movimento?')) {
-                                   await deleteDoc(doc(db, ...basePath, 'logs', log.id));
-                               }
-                           }} className="text-red-400 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors shrink-0">
+                           <button onClick={async () => await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'logs', log.id))} className="text-red-400 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors shrink-0">
                                <Trash2 className="w-6 h-6" />
                            </button>
                          </div>
-                       ))}
+                        ))}
                      </div>
                   </div>
                 )}
 
+                {}
                 {/* --- CAMPIONI DASHBOARD --- */}
                 {currentView === 'dashboard' && (
                   <div className="space-y-4 w-full">
@@ -1619,11 +1632,7 @@
                             <p className="font-bold text-slate-500 text-sm mt-1">{new Date(s.createdAt).toLocaleString('it-IT')}</p>
                          </div>
                          <div className="flex gap-3">
-                            <button onClick={() => {
-                                if(window.confirm(`${translations[lang].deleteConfirm} "${s.destination}"?`)) {
-                                    deleteDoc(doc(db, ...basePath, 'shipments', s.id));
-                                }
-                            }} className="p-4 text-red-600 bg-red-50 dark:bg-red-900/20 rounded-2xl shrink-0"><Trash2 className="w-6 h-6" /></button>
+                            <button onClick={() => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shipments', s.id))} className="p-4 text-red-600 bg-red-50 dark:bg-red-900/20 rounded-2xl shrink-0"><Trash2 className="w-6 h-6" /></button>
                             <button onClick={() => { setActiveEntityName(s.destination); setActiveEntityRegion(s.region); setBackView('dashboard'); setCurrentView('repDetails'); }} className={`flex-1 md:w-40 flex items-center justify-center gap-2 px-6 py-4 rounded-2xl font-black border text-center shadow-sm transition-colors bg-[#3b82f6] text-white border-[#3b82f6]`}>
                                 {translations[lang].detailsBtn}
                             </button>
@@ -1680,7 +1689,7 @@
                             {items.filter(i => !i.excludeFromSamples && (i.name || '').toLowerCase().includes(sampleSearch.toLowerCase())).map(item => (
                                 <div key={item.id} className="flex justify-between items-center p-3 border-b-2 border-slate-100 dark:border-slate-800 last:border-0 hover:bg-white dark:hover:bg-slate-800 rounded-xl transition-colors">
                                     <div className="flex items-center gap-3">
-                                        <button onClick={async () => await updateDoc(doc(db, ...basePath, 'items', item.id), { excludeFromSamples: true })} className="text-slate-400 p-2 hover:text-red-500"><EyeOff className="w-6 h-6"/></button>
+                                        <button onClick={async () => await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'items', item.id), { excludeFromSamples: true })} className="text-slate-400 p-2 hover:text-red-500"><EyeOff className="w-6 h-6"/></button>
                                         <div className="flex flex-col">
                                             <span className="font-black text-xl">{item.name || 'Prodotto'}</span>
                                             <span className="text-xs uppercase font-bold opacity-50">{item.category || 'Altro'}</span>
@@ -1712,6 +1721,7 @@
                   </div>
                 )}
 
+                {}
                 {/* --- RUBRICA INFORMATORI --- */}
                 {currentView === 'informatori' && (
                   <div className="space-y-4 w-full">
@@ -1728,7 +1738,7 @@
                                       <input type="text" value={editInfoName} onChange={e=>setEditInfoName(e.target.value)} className="w-full p-4 rounded-xl border-2 font-bold text-xl outline-none bg-inherit" />
                                       <input type="text" value={editInfoRegion} onChange={e=>setEditInfoRegion(e.target.value)} placeholder="Regione" className="w-full p-4 rounded-xl border-2 font-bold text-xl outline-none bg-inherit" />
                                       <div className="flex gap-2 mt-2 w-full">
-                                          <button onClick={async () => { await updateDoc(doc(db, ...basePath, 'informatori', info.id), { name: editInfoName, region: editInfoRegion }); setEditingInfoId(null); }} className="flex-1 bg-blue-600 text-white p-4 rounded-xl font-black text-xl flex justify-center items-center gap-2"><Save className="w-6 h-6"/> {translations[lang].saveBtn}</button>
+                                          <button onClick={async () => { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'informatori', info.id), { name: editInfoName, region: editInfoRegion }); setEditingInfoId(null); }} className="flex-1 bg-blue-600 text-white p-4 rounded-xl font-black text-xl flex justify-center items-center gap-2"><Save className="w-6 h-6"/> {translations[lang].saveBtn}</button>
                                           <button onClick={()=>setEditingInfoId(null)} className="p-4 bg-slate-300 dark:bg-slate-700 rounded-xl font-black text-xl">{translations[lang].cancelBtn}</button>
                                       </div>
                                   </div>
@@ -1744,11 +1754,7 @@
                                  <p className="text-base sm:text-lg md:text-xl text-[#3b82f6] font-bold mt-1 truncate" title={info.region}>{info.region || 'Nessuna regione'}</p>
                                </div>
                                <div className="flex gap-2 w-full md:w-auto">
-                                   <button onClick={() => {
-                                       if(window.confirm(`${translations[lang].deleteConfirm} "${info.name}"?`)) {
-                                           deleteDoc(doc(db, ...basePath, 'informatori', info.id));
-                                       }
-                                   }} className="p-4 shrink-0 text-red-600 border border-red-200 bg-red-50 dark:bg-red-900/20 rounded-xl"><Trash2 className="w-7 h-7" /></button>
+                                   <button onClick={() => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'informatori', info.id))} className="p-4 shrink-0 text-red-600 border border-red-200 bg-red-50 dark:bg-red-900/20 rounded-xl"><Trash2 className="w-7 h-7" /></button>
                                    <button onClick={() => { setActiveEntityName(info.name); setActiveEntityRegion(info.region); setBackView('informatori'); setCurrentView('repDetails'); }} className="px-6 py-4 rounded-xl font-black flex items-center justify-center gap-2 shadow-sm border transition-colors flex-1 md:flex-none bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800 text-lg">
                                        {translations[lang].historyBtn}
                                    </button>
@@ -1777,7 +1783,7 @@
                                       <input type="text" value={editInfoName} onChange={e=>setEditInfoName(e.target.value)} className="w-full p-4 rounded-xl border-2 font-bold text-xl outline-none bg-inherit" />
                                       <input type="text" value={editInfoRegion} onChange={e=>setEditInfoRegion(e.target.value)} placeholder="Luogo/Regione" className="w-full p-4 rounded-xl border-2 font-bold text-xl outline-none bg-inherit" />
                                       <div className="flex gap-2 mt-2 w-full">
-                                          <button onClick={async () => { await updateDoc(doc(db, ...basePath, 'congressi', info.id), { name: editInfoName, region: editInfoRegion }); setEditingInfoId(null); }} className="flex-1 bg-emerald-600 text-white p-4 rounded-xl font-black text-xl flex justify-center items-center gap-2"><Save className="w-6 h-6"/> {translations[lang].saveBtn}</button>
+                                          <button onClick={async () => { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'congressi', info.id), { name: editInfoName, region: editInfoRegion }); setEditingInfoId(null); }} className="flex-1 bg-emerald-600 text-white p-4 rounded-xl font-black text-xl flex justify-center items-center gap-2"><Save className="w-6 h-6"/> {translations[lang].saveBtn}</button>
                                           <button onClick={()=>setEditingInfoId(null)} className="p-4 bg-slate-300 dark:bg-slate-700 rounded-xl font-black text-xl">{translations[lang].cancelBtn}</button>
                                       </div>
                                   </div>
@@ -1793,11 +1799,7 @@
                                  <p className="text-base sm:text-lg md:text-xl text-emerald-600 font-bold mt-1 flex items-center gap-1.5 truncate" title={info.region}><MapPin className="w-5 h-5 flex-shrink-0"/> {info.region || translations[lang].placeNotSpecified}</p>
                                </div>
                                <div className="flex gap-2 w-full md:w-auto">
-                                   <button onClick={() => {
-                                       if(window.confirm(`${translations[lang].deleteConfirm} "${info.name}"?`)) {
-                                           deleteDoc(doc(db, ...basePath, 'congressi', info.id));
-                                       }
-                                   }} className="p-4 shrink-0 text-red-600 border border-red-200 bg-red-50 dark:bg-red-900/20 rounded-xl"><Trash2 className="w-7 h-7" /></button>
+                                   <button onClick={() => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'congressi', info.id))} className="p-4 shrink-0 text-red-600 border border-red-200 bg-red-50 dark:bg-red-900/20 rounded-xl"><Trash2 className="w-7 h-7" /></button>
                                    <button onClick={() => { setActiveEntityName(info.name); setActiveEntityRegion(info.region); setBackView('congressi'); setCurrentView('repDetails'); }} className="px-6 py-4 rounded-xl font-black flex items-center justify-center gap-2 shadow-sm border transition-colors flex-1 md:flex-none bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800 text-lg">
                                        {translations[lang].historyBtn}
                                    </button>
@@ -1859,6 +1861,7 @@
                   )
                 })()}
 
+                {}
                 {/* --- NOTE CON TENDINA --- */}
                 {currentView === 'notes' && (
                   <div className="space-y-4 w-full animate-fade-in">
@@ -1884,11 +1887,7 @@
                                </div>
                                <div className="flex gap-3 shrink-0 pt-0.5">
                                   <Pencil className="w-7 h-7 text-blue-600 cursor-pointer hover:scale-110 transition-transform" onClick={() => {setEditingNoteId(n.id); setNoteSubject(n.subject); setNoteText(n.text); window.scrollTo({top:0, behavior:'smooth'});}} />
-                                  <Trash2 className="w-7 h-7 text-red-600 cursor-pointer hover:scale-110 transition-transform" onClick={async () => {
-                                      if(window.confirm(`${translations[lang].deleteConfirm} "${n.subject}"?`)) {
-                                          await deleteDoc(doc(db, ...basePath, 'notes', n.id));
-                                      }
-                                  }} />
+                                  <Trash2 className="w-7 h-7 text-red-600 cursor-pointer hover:scale-110 transition-transform" onClick={async () => await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'notes', n.id))} />
                                </div>
                             </div>
                             {expandedNotes[n.id] && (
@@ -1922,7 +1921,7 @@
                               </div>
                               <div className="relative">
                                   <span className="absolute -top-4 left-3 px-2 text-base md:text-lg font-black text-emerald-600 dark:text-emerald-400 bg-white dark:bg-slate-800">Scad.</span>
-                                  <input type="text" placeholder="MM/AA" value={lotto.expiry || ''} onChange={e => { const d = [...editLotsData]; d[idx].expiry = formatExpiryDate(e.target.value); setEditLotsData(d); }} className="w-full p-4 rounded-xl border-2 font-black text-3xl bg-transparent outline-none dark:text-white" />
+                                  <input type="text" placeholder="MM/AA o GG/MM/AA" value={lotto.expiry || ''} onChange={e => { const d = [...editLotsData]; d[idx].expiry = formatExpiryInput(e.target.value); setEditLotsData(d); }} className="w-full p-4 rounded-xl border-2 font-black text-xl sm:text-2xl bg-transparent outline-none dark:text-white placeholder-slate-400 dark:placeholder-slate-500" />
                               </div>
                             </div>
 
@@ -1946,7 +1945,7 @@
                              const currentStock = item ? parseInt(item.stock) || 0 : 0;
                              const lotsTotal = editLotsData.reduce((acc, curr) => acc + (parseInt(curr.qty) || 0), 0);
                              const finalStock = Math.max(currentStock, lotsTotal);
-                             await updateDoc(doc(db, ...basePath, 'items', editingLotsId), { lots: editLotsData, stock: finalStock });
+                             await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'items', editingLotsId), { lots: editLotsData, stock: finalStock });
                              setEditingLotsId(null);
                           }} className="w-full bg-emerald-500 text-white py-5 rounded-xl font-black text-xl shadow-md flex items-center justify-center gap-2 hover:bg-emerald-600 active:scale-95 transition-transform"><Save className="w-6 h-6"/> {translations[lang].saveLots}</button>
                       </div>
@@ -1989,6 +1988,7 @@
 
               </main>
 
+              {}
               {/* MODAL: ELIMINA PRODOTTO */}
               {itemToDelete && (
                   <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6">
@@ -1998,7 +1998,7 @@
                           <p className="text-xl font-bold opacity-70 text-slate-900 dark:text-white">{translations[lang].deleteConfirm} "{itemToDelete.name}"? L'operazione non è reversibile.</p>
                           <div className="flex flex-col gap-3">
                               <button onClick={async () => {
-                                  await deleteDoc(doc(db, ...basePath, 'items', itemToDelete.id));
+                                  await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'items', itemToDelete.id));
                                   setItemToDelete(null);
                                   setEditingItemId(null);
                               }} className="w-full bg-red-600 text-white py-5 rounded-2xl font-black text-xl shadow-md uppercase active:scale-95 transition-transform">{translations[lang].yesDelete}</button>
