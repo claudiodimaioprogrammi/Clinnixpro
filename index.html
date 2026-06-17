@@ -14,6 +14,16 @@
     <meta name="apple-mobile-web-app-title" content="Clinnix">
     <meta name="theme-color" content="#0f172a">
 
+    <script type="importmap">
+        {
+            "imports": {
+                "react": "https://esm.sh/react@18",
+                "react-dom/client": "https://esm.sh/react-dom@18/client",
+                "react/jsx-runtime": "https://esm.sh/react@18/jsx-runtime"
+            }
+        }
+    </script>
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -80,8 +90,8 @@
     </div>
     
     <script type="text/babel" data-type="module">
-        import React, { useState, useEffect, useRef } from 'https://esm.sh/react@18';
-        import ReactDOM from 'https://esm.sh/react-dom@18/client';
+        import React, { useState, useEffect, useRef } from 'react';
+        import ReactDOM from 'react-dom/client';
         import { Package, Truck, CheckCircle, Plus, ArrowLeft, Trash2, ClipboardList, Save, AlertTriangle, Pencil, X, Moon, Sun, Search, Download, StickyNote, Layers, Box, Minus, Clock, Activity, ShoppingBag, Users, Briefcase, ShoppingCart, Calculator, MessageCircle, Globe, History, MapPin, ChevronDown, ChevronUp, EyeOff, Printer } from 'https://esm.sh/lucide-react@0.294.0';
         
         import { initializeApp } from 'https://esm.sh/firebase/app';
@@ -125,6 +135,7 @@
             newButton: 'NUOVA',
             noShipments: 'Nessuna uscita registrata.',
             newAssignment: 'Nuova Assegnazione',
+            editAssignment: 'Modifica Assegnazione',
             back: 'Indietro',
             repName: 'Nome Informatore',
             congName: 'Nome Congresso',
@@ -133,6 +144,7 @@
             addManual: 'Aggiungi altro manualmente',
             addRow: 'Aggiungi riga',
             saveAssignment: 'REGISTRA ASSEGNAZIONE',
+            updateAssignment: 'AGGIORNA ASSEGNAZIONE',
             repDirectory: 'Rubrica Informatori',
             searchName: 'Cerca nome...',
             searchCong: 'Cerca congresso...',
@@ -153,7 +165,10 @@
             allDepts: 'TUTTI I REPARTI',
             singleDepts: 'Singoli Reparti',
             deleteProduct: 'Elimina Prodotto',
+            deleteSampleTitle: 'Elimina Campionatura',
             deleteConfirm: 'Vuoi davvero eliminare definitivamente',
+            deleteSampleConfirm: 'Vuoi davvero eliminare l\'assegnazione a',
+            deleteSampleWarning: 'I pezzi NON verranno ricaricati in magazzino automaticamente.',
             yesDelete: 'Sì, Elimina',
             clearConfirmTitle: 'Sei Sicuro?',
             clearConfirmText: 'Questa operazione cancellerà definitivamente l\'intero storico movimenti. Non potrai tornare indietro.',
@@ -191,7 +206,13 @@
             modePcs: 'A PEZZI',
             modeCartons: 'A CARTONI',
             numCartons: 'Num. Cartoni',
-            lastMod: 'Ultima mod.'
+            lastMod: 'Ultima mod.',
+            activeLot: 'Lotto in Uso',
+            runningOut: 'In Esaurimento',
+            expiryLabel: 'Scad.',
+            totalStockLabel: 'Giacenza Totale',
+            cartonsLabel: 'Cartoni',
+            packsLabel: 'Confez.'
           },
           en: {
             accessTitle: "Team Restricted Area",
@@ -215,6 +236,7 @@
             newButton: 'NEW',
             noShipments: 'No registered outflows.',
             newAssignment: 'New Assignment',
+            editAssignment: 'Edit Assignment',
             back: 'Back',
             repName: 'Representative Name',
             congName: 'Congress Name',
@@ -223,6 +245,7 @@
             addManual: 'Add manually',
             addRow: 'Add row',
             saveAssignment: 'REGISTER ASSIGNMENT',
+            updateAssignment: 'UPDATE ASSIGNMENT',
             repDirectory: 'Representatives Directory',
             searchName: 'Search name...',
             searchCong: 'Search congress...',
@@ -243,7 +266,10 @@
             allDepts: 'ALL DEPARTMENTS',
             singleDepts: 'Single Departments',
             deleteProduct: 'Delete Product',
+            deleteSampleTitle: 'Delete Sample',
             deleteConfirm: 'Do you really want to permanently delete',
+            deleteSampleConfirm: 'Do you really want to delete the assignment to',
+            deleteSampleWarning: 'The items will NOT be restocked automatically.',
             yesDelete: 'Yes, Delete',
             clearConfirmTitle: 'Are you sure?',
             clearConfirmText: 'This operation will permanently delete the entire movement history. You cannot go back.',
@@ -281,7 +307,13 @@
             modePcs: 'BY PIECES',
             modeCartons: 'BY CARTONS',
             numCartons: 'Num. Cartons',
-            lastMod: 'Last mod.'
+            lastMod: 'Last mod.',
+            activeLot: 'ACTIVE LOT',
+            runningOut: 'RUNNING OUT',
+            expiryLabel: 'Exp.',
+            totalStockLabel: 'Total Stock',
+            cartonsLabel: 'Cartons',
+            packsLabel: 'Packs'
           },
           si: {
             accessTitle: "කණ්ඩායම් සීමිත ප්‍රදේශය (Team Area)",
@@ -305,6 +337,7 @@
             newButton: 'නව',
             noShipments: 'කිසිදු පිටවීමක් ලියාපදිංචි කර නැත.',
             newAssignment: 'නව පැවරුම',
+            editAssignment: 'පැවරුම සංස්කරණය',
             back: 'ආපසු',
             repName: 'නියෝජිතයාගේ නම',
             congName: 'සම්මේලනයේ නම',
@@ -313,6 +346,7 @@
             addManual: 'හස්තීයව තවත් එකතු කරන්න',
             addRow: 'පේළියක් එකතු කරන්න',
             saveAssignment: 'පැවරුම ලියාපදිංචි කරන්න',
+            updateAssignment: 'පැවරුම යාවත්කාලීන කරන්න',
             repDirectory: 'නියෝජිත නාමාවලිය',
             searchName: 'නම සොයන්න...',
             searchCong: 'සම්මේලනය සොයන්න...',
@@ -333,7 +367,10 @@
             allDepts: 'සියලුම අංශ',
             singleDepts: 'තනි අංශ',
             deleteProduct: 'නිෂ්පාදනය මකන්න',
+            deleteSampleTitle: 'නියැදිය මකන්න',
             deleteConfirm: 'ඔබට ස්ථිරවම මකා දැමීමට අවශ්‍යද',
+            deleteSampleConfirm: 'ඔබට මෙම පැවරුම මකා දැමීමට අවශ්‍යද',
+            deleteSampleWarning: 'කෑලි ස්වයංක්‍රීයව ගබඩාවට නැවත ඇතුළත් නොවේ.',
             yesDelete: 'ඔව්, මකන්න',
             clearConfirmTitle: 'ඔබට විශ්වාසද?',
             clearConfirmText: 'මෙමගින් ඔබගේ සමස්ත ඉතිහාසයම ස්ථිරවම මැකී යනු ඇත. මෙය නැවත වෙනස් කල නොහැක.',
@@ -371,7 +408,13 @@
             modePcs: 'කෑලි වලින්',
             modeCartons: 'පෙට්ටි වලින්',
             numCartons: 'පෙට්ටි ගණන',
-            lastMod: 'අවසන් සංස්.'
+            lastMod: 'අවසන් සංස්.',
+            activeLot: 'භාවිතා වන කාණ්ඩය',
+            runningOut: 'අවසන් වෙමින් පවතී',
+            expiryLabel: 'කල් ඉකුත්වීම',
+            totalStockLabel: 'මුළු තොගය',
+            cartonsLabel: 'පෙට්ටි',
+            packsLabel: 'පැකට්'
           },
           ta: {
             accessTitle: "குழுவிற்கான ஒதுக்கப்பட்ட பகுதி (Team Area)",
@@ -395,6 +438,7 @@
             newButton: 'புதியது',
             noShipments: 'எந்தவொரு வழங்கல்களும் பதிவு செய்யப்படவில்லை.',
             newAssignment: 'புதிய ஒதுக்கீடு',
+            editAssignment: 'ஒதுக்கீட்டைத் திருத்து',
             back: 'பின்செல்',
             repName: 'பிரதிநிதியின் பெயர்',
             congName: 'மாநாட்டின் பெயர்',
@@ -403,6 +447,7 @@
             addManual: 'கைமுறையாக மேலும் சேர்க்கவும்',
             addRow: 'வரிசையைச் சேர்க்கவும்',
             saveAssignment: 'ஒதுக்கீட்டைப் பதிவுசெய்',
+            updateAssignment: 'ஒதுக்கீட்டைப் புதுப்பி',
             repDirectory: 'பிரதிநிதிகள் அடைவு',
             searchName: 'பெயரைத் தேடுங்கள்...',
             searchCong: 'மாநாட்டைத் தேடுங்கள்...',
@@ -423,7 +468,10 @@
             allDepts: 'அனைத்து பிரிவுகளும்',
             singleDepts: 'தனிப்பட்ட பிரிவுகள்',
             deleteProduct: 'தயாரிப்பை நீக்கு',
+            deleteSampleTitle: 'மாதிரியை நீக்கு',
             deleteConfirm: 'நீங்கள் நிச்சயமாக நிரந்தரமாக நீக்க விரும்புகிறீர்களா',
+            deleteSampleConfirm: 'ஒதுக்கீட்டை நிச்சயமாக நீக்க விரும்புகிறீர்களா',
+            deleteSampleWarning: 'துண்டுகள் தானாகவே கிடங்கில் மீண்டும் ஏற்றப்படாது.',
             yesDelete: 'ஆம், நீக்கு',
             clearConfirmTitle: 'நிச்சயமாகவா?',
             clearConfirmText: 'இது உங்கள் முழு இயக்க வரலாற்றையும் நிரந்தரமாக அழித்துவிடும். இதை மாற்ற முடியாது.',
@@ -461,7 +509,13 @@
             modePcs: 'துண்டுகளாக',
             modeCartons: 'பெட்டிகளாக',
             numCartons: 'பெட்டிகளின் எண்',
-            lastMod: 'கடைசி மாற்றம்'
+            lastMod: 'கடைசி மாற்றம்',
+            activeLot: 'பயன்பாட்டில் உள்ள தொகுதி',
+            runningOut: 'தீர்ந்துபோகிறது',
+            expiryLabel: 'காலாவதி',
+            totalStockLabel: 'மொத்த இருப்பு',
+            cartonsLabel: 'பெட்டிகள்',
+            packsLabel: 'பேக்குகள்'
           }
         };
 
@@ -484,6 +538,7 @@
           const [currentView, setCurrentView] = useState('inventory');
           const [searchQuery, setSearchQuery] = useState('');
           const [inventoryFilter, setInventoryFilter] = useState('Tutti');
+          const [orderFilter, setOrderFilter] = useState('Tutti'); // Nuovo filtro per Ordini
           
           const [activeEntityName, setActiveEntityName] = useState('');
           const [activeEntityRegion, setActiveEntityRegion] = useState('');
@@ -497,6 +552,7 @@
           const [newInvCategory, setNewInvCategory] = useState('Integratori');
           const [newInvCartonSize, setNewInvCartonSize] = useState('10');
           const [newInvAlert, setNewInvAlert] = useState('10');
+          const [newInvLotAlert, setNewInvLotAlert] = useState('5'); 
           const [newInvQty, setNewInvQty] = useState('');
           const [newInvLotto, setNewInvLotto] = useState('');
           const [newInvScadenza, setNewInvScadenza] = useState('');
@@ -512,6 +568,10 @@
           const [editInfoRegion, setEditInfoRegion] = useState('');
 
           const [itemToDelete, setItemToDelete] = useState(null);
+          const [shipmentToDelete, setShipmentToDelete] = useState(null); // Stato per conferma cancellazione campioni
+
+          // Modifica Campioni
+          const [editingShipmentId, setEditingShipmentId] = useState(null);
 
           // Calcolatrice Fluttuante
           const [showCalc, setShowCalc] = useState(false);
@@ -585,7 +645,6 @@
               return diffTime > 0 ? Math.floor(diffTime / (1000 * 60 * 60 * 24)) : 0;
           };
 
-          // Funzione per mostrare un testo pulito per "L-Nuovo"
           const cleanLotId = (id) => {
               if (!id) return '';
               if (id.toString().startsWith('0.')) return '';
@@ -593,30 +652,23 @@
               return id;
           };
 
-          // --- LOGICA DI FORMATTAZIONE AUTOMATICA (Auto-Slash & Limite Cifre) ---
           const formatExpiryInput = (val) => {
               if (!val) return '';
-              // Rimuove tutto ciò che non è un numero
               let digits = val.replace(/\D/g, ''); 
-              // Blocca l'inserimento oltre i 6 numeri (corrispondenti a GG/MM/AA)
               digits = digits.substring(0, 6); 
 
               if (digits.length <= 2) {
                   return digits;
               } else if (digits.length <= 4) {
-                  // Mette lo slash dopo i primi 2 numeri
                   return `${digits.slice(0, 2)}/${digits.slice(2)}`;
               } else {
-                  // Mette lo slash ogni 2 numeri (per GG/MM/AA)
                   return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
               }
           };
 
-          // --- LOGICA DI PARSING DELLE DATE (MM/AA o GG/MM/AA in Millisecondi) ---
           const parseDateToMs = (dateStr) => {
             if (!dateStr || dateStr === '-') return Infinity;
             
-            // Se è nel formato standard YYYY-MM-DD (es. input type date vecchio)
             if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
                 return new Date(dateStr).getTime();
             }
@@ -637,10 +689,8 @@
             return Infinity; 
           };
 
-          // Formattazione data visiva
           const formatDateStr = (dateStr) => {
               if (!dateStr || dateStr === '-') return '-';
-              // Converte vecchio formato YYYY-MM-DD in GG/MM/AA per mantenere la pulizia
               if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
                   const [y, m, d] = dateStr.split('-');
                   return `${d}/${m}/${y.slice(2)}`;
@@ -692,29 +742,28 @@
             return () => unsub.forEach(f => f());
           }, [user, isAuthenticated]);
 
-          // Sincronizzazione dello stato per l'handler popstate
           useEffect(() => {
-              stateRef.current = { showCalc, itemToDelete, showClearLogsModal, showWhatsAppModal, editingLotsId, editingItemId, editingNoteId, currentView, backView, showExitWarning };
-          }, [showCalc, itemToDelete, showClearLogsModal, showWhatsAppModal, editingLotsId, editingItemId, editingNoteId, currentView, backView, showExitWarning]);
+              stateRef.current = { showCalc, itemToDelete, shipmentToDelete, showClearLogsModal, showWhatsAppModal, editingLotsId, editingItemId, editingNoteId, currentView, backView, showExitWarning };
+          }, [showCalc, itemToDelete, shipmentToDelete, showClearLogsModal, showWhatsAppModal, editingLotsId, editingItemId, editingNoteId, currentView, backView, showExitWarning]);
 
-          // Tasto Indietro (PopState)
           useEffect(() => {
               if (!isAuthenticated) return;
               
               const handlePopState = () => {
                   const s = stateRef.current;
-                  // 1. Chiudi tutti i modali aperti
                   if (s.showCalc) { setShowCalc(false); window.history.pushState({ trapped: true }, '', window.location.href); return; }
                   if (s.itemToDelete) { setItemToDelete(null); window.history.pushState({ trapped: true }, '', window.location.href); return; }
+                  if (s.shipmentToDelete) { setShipmentToDelete(null); window.history.pushState({ trapped: true }, '', window.location.href); return; }
                   if (s.showClearLogsModal) { setShowClearLogsModal(false); window.history.pushState({ trapped: true }, '', window.location.href); return; }
                   if (s.showWhatsAppModal) { setShowWhatsAppModal(false); window.history.pushState({ trapped: true }, '', window.location.href); return; }
                   if (s.editingLotsId) { setEditingLotsId(null); window.history.pushState({ trapped: true }, '', window.location.href); return; }
                   if (s.editingItemId) { setEditingItemId(null); window.history.pushState({ trapped: true }, '', window.location.href); return; }
                   if (s.editingNoteId) { setEditingNoteId(null); setNoteText(''); setNoteSubject(''); window.history.pushState({ trapped: true }, '', window.location.href); return; }
 
-                  // 2. Se sei in una sottomaschera
                   if (['new', 'informatori', 'congressi'].includes(s.currentView)) {
                       setCurrentView('dashboard');
+                      setEditingShipmentId(null);
+                      setNewDest(''); setNewRegion(''); setSampleQuantities({}); setExtraItems([{ id: 'init', name: '', qty: '' }]);
                       window.history.pushState({ trapped: true }, '', window.location.href);
                       return;
                   }
@@ -724,7 +773,6 @@
                       return;
                   }
 
-                  // 3. Logica doppio tap per uscire
                   if (s.showExitWarning) {
                       clearTimeout(exitTimeout.current);
                       setShowExitWarning(false);
@@ -761,7 +809,6 @@
               setShowClearLogsModal(false);
           };
 
-          // LOGICA SCALO QUANTITÀ CON ORDINAMENTO INTELLIGENTE
           const updateLotsLogic = (lotsArray, change) => {
             if (!Array.isArray(lotsArray) || lotsArray.length === 0) return [];
             let updatedLots = JSON.parse(JSON.stringify(lotsArray));
@@ -839,7 +886,10 @@
                 }
                 const data = {
                   name: nameToSave, stock: qtyToAdd, cartonSize: cartonSizeToSave,
-                  piecesPerPack: 1, category: newInvCategory || 'Altro', alertThreshold: parseInt(newInvAlert) || 10, lots: lots,
+                  piecesPerPack: 1, category: newInvCategory || 'Altro', 
+                  alertThreshold: parseInt(newInvAlert) || 10, 
+                  lotAlertThreshold: parseInt(newInvLotAlert) || 5,
+                  lots: lots,
                   excludeFromSamples: false, hasNoLots: false, orderConfirmed: false, productNote: '',
                   lastModified: Date.now()
                 };
@@ -880,6 +930,7 @@
                 cartonSize: parseInt(editFormData.cartonSize) || 10, 
                 piecesPerPack: parseInt(editFormData.piecesPerPack) || 1, 
                 alertThreshold: parseInt(editFormData.alertThreshold) || 0, 
+                lotAlertThreshold: parseInt(editFormData.lotAlertThreshold) || 0,
                 stock: newStock, 
                 isToOrder: editFormData.isToOrder || false, 
                 excludeFromSamples: editFormData.excludeFromSamples || false,
@@ -926,7 +977,6 @@
 
           const handleAssignSamples = async () => {
             if (!newDest.trim()) return;
-            const id = `CAMP-${Date.now().toString().slice(-5)}`;
             
             const itemsToShip = [];
             Object.keys(sampleQuantities).forEach(itemName => {
@@ -938,27 +988,61 @@
             });
 
             if (itemsToShip.length === 0) return;
-            
-            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shipments', id), { 
-                destination: newDest, 
-                region: newRegion.trim(), 
-                items: itemsToShip, 
-                status: 'Consegnato', 
-                destType: destType, 
-                createdAt: Date.now() 
-            });
-            
-            for (let shipped of itemsToShip) {
-                const dbItem = items.find(i => i.name === shipped.name);
-                if (dbItem) { await handleQuickStock(dbItem, -(parseInt(shipped.qty) || 0)); }
+
+            if (editingShipmentId) {
+                // Modifica Assegnazione Esistente
+                const oldShipment = shipments.find(s => s.id === editingShipmentId);
+                
+                if (oldShipment) {
+                    // 1. Restituisci il vecchio stock in magazzino
+                    for (let oldItem of oldShipment.items) {
+                        const dbItem = items.find(i => i.name === oldItem.name);
+                        if (dbItem) { await handleQuickStock(dbItem, parseInt(oldItem.qty) || 0); }
+                    }
+                }
+
+                // 2. Togli il nuovo stock dal magazzino
+                for (let shipped of itemsToShip) {
+                    const dbItem = items.find(i => i.name === shipped.name);
+                    if (dbItem) { await handleQuickStock(dbItem, -(parseInt(shipped.qty) || 0)); }
+                }
+
+                // 3. Aggiorna il documento su Firebase
+                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shipments', editingShipmentId), {
+                    destination: newDest,
+                    region: newRegion.trim(),
+                    items: itemsToShip,
+                    destType: destType,
+                    lastModified: Date.now()
+                });
+
+                addLog(`Modificata assegnazione a ${destType}: ${newDest}`, 'shipment');
+                setEditingShipmentId(null);
+            } else {
+                // Nuova Assegnazione
+                const id = `CAMP-${Date.now().toString().slice(-5)}`;
+                
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shipments', id), { 
+                    destination: newDest, 
+                    region: newRegion.trim(), 
+                    items: itemsToShip, 
+                    status: 'Consegnato', 
+                    destType: destType, 
+                    createdAt: Date.now() 
+                });
+                
+                for (let shipped of itemsToShip) {
+                    const dbItem = items.find(i => i.name === shipped.name);
+                    if (dbItem) { await handleQuickStock(dbItem, -(parseInt(shipped.qty) || 0)); }
+                }
+                addLog(`Assegnato a ${destType}: ${newDest}`, 'shipment');
             }
             
-            addLog(`Assegnato a ${destType}: ${newDest}`, 'shipment');
-            
+            // Aggiorna rubrica (sia in caso di nuovo che di modifica)
             const targetList = destType === 'informatore' ? informatori : congressi;
             const targetCollection = destType === 'informatore' ? 'informatori' : 'congressi';
-            
             const existingInfo = targetList.find(i => (i.name || '').toLowerCase() === newDest.toLowerCase());
+            
             if (existingInfo) {
               if (newRegion && existingInfo.region !== newRegion.trim()) {
                 await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', targetCollection, existingInfo.id), { region: newRegion.trim() });
@@ -966,7 +1050,31 @@
             } else {
               await addDoc(collection(db, 'artifacts', appId, 'public', 'data', targetCollection), { name: newDest.trim(), region: newRegion.trim() });
             }
+            
             setCurrentView('dashboard'); setNewDest(''); setNewRegion(''); setSampleQuantities({}); setSampleSearch(''); setExtraItems([{ id: 'init', name: '', qty: '' }]);
+          };
+
+          const apriModificaCampionatura = (shipment) => {
+              setEditingShipmentId(shipment.id);
+              setDestType(shipment.destType || 'informatore');
+              setNewDest(shipment.destination || '');
+              setNewRegion(shipment.region || '');
+
+              const qtyMap = {};
+              const exItems = [];
+              shipment.items.forEach(it => {
+                 const existsInDb = items.some(invItem => invItem.name === it.name && !invItem.excludeFromSamples);
+                 if (existsInDb) {
+                    qtyMap[it.name] = it.qty.toString();
+                 } else {
+                    exItems.push({ id: Date.now().toString() + Math.random(), name: it.name, qty: it.qty.toString() });
+                 }
+              });
+              
+              setSampleQuantities(qtyMap);
+              setExtraItems(exItems.length > 0 ? exItems : [{ id: 'init', name: '', qty: '' }]);
+              setCurrentView('new');
+              window.scrollTo({top:0, behavior:'smooth'});
           };
 
           const handleSaveNote = async () => {
@@ -1096,7 +1204,6 @@
                 </div>
               </header>
 
-              {/* CALCOLATRICE FLUTTUANTE E TRASCINABILE */}
               {showCalc && (
                 <div 
                     className={`fixed z-[400] w-full max-w-[280px] p-4 rounded-3xl shadow-[0_10px_40px_rgba(0,0,0,0.5)] ${isDarkMode ? 'bg-slate-800 text-white border-slate-700' : 'bg-slate-100 text-slate-900 border-slate-300'} border-2`}
@@ -1148,7 +1255,6 @@
                 </div>
               )}
 
-              {/* TOAST AVVISO DOPPIO TOCCO PER USCIRE */}
               {showExitWarning && (
                   <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full font-bold text-sm sm:text-base shadow-2xl z-[500] border border-slate-600/50 whitespace-nowrap animate-fade-in text-center">
                       {translations[lang].pressBackToExit}
@@ -1157,8 +1263,6 @@
 
               <main className="max-w-4xl mx-auto p-3 md:p-5 w-full">
                 
-                {}
-                {/* --- MAGAZZINO --- */}
                 {currentView === 'inventory' && (
                   <div className="space-y-4 w-full">
                     <div className={`mt-2 p-4 md:p-5 rounded-3xl border w-full overflow-hidden ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300 shadow-sm'}`}>
@@ -1167,12 +1271,12 @@
                         <input list="inventory-items-list" type="text" placeholder={translations[lang].newItem} value={newInvName} onChange={e => {
                             const val = e.target.value;
                             setNewInvName(val);
-                            // Autocompilazione dei campi se il prodotto esiste già
                             const existing = items.find(i => (i.name || '').toLowerCase() === val.toLowerCase());
                             if (existing) {
                                 if (existing.category) setNewInvCategory(existing.category);
                                 if (existing.cartonSize) setNewInvCartonSize(existing.cartonSize.toString());
                                 if (existing.alertThreshold) setNewInvAlert(existing.alertThreshold.toString());
+                                if (existing.lotAlertThreshold) setNewInvLotAlert(existing.lotAlertThreshold.toString());
                             }
                         }} className={`w-full p-4 rounded-2xl border-2 font-black outline-none text-xl ${isDarkMode ? 'bg-slate-900 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`} />
                         <datalist id="inventory-items-list">
@@ -1198,6 +1302,11 @@
                           <div className="flex-[1] min-w-0 relative mt-4 md:mt-0">
                             <span className={`absolute -top-4 left-3 px-2 text-base md:text-lg font-black text-orange-600 dark:text-orange-400 ${isDarkMode ? 'bg-[#0f172a]' : 'bg-white'}`}>{translations[lang].alertPz}</span>
                             <input type="number" value={newInvAlert} onChange={e => setNewInvAlert(e.target.value)} className={`w-full p-4 rounded-2xl border-2 text-center font-bold outline-none text-lg bg-orange-50 dark:bg-slate-800 border-orange-200 dark:border-orange-500/50 text-orange-700 dark:text-orange-400`} />
+                          </div>
+
+                          <div className="flex-[1] min-w-0 relative mt-4 md:mt-0">
+                            <span className={`absolute -top-4 left-3 px-2 text-base md:text-lg font-black text-purple-600 dark:text-purple-400 ${isDarkMode ? 'bg-[#0f172a]' : 'bg-white'}`}>Allarme Conf. Lotto</span>
+                            <input type="number" value={newInvLotAlert} onChange={e => setNewInvLotAlert(e.target.value)} className={`w-full p-4 rounded-2xl border-2 text-center font-bold outline-none text-lg bg-purple-50 dark:bg-slate-800 border-purple-200 dark:border-purple-500/50 text-purple-700 dark:text-purple-400`} />
                           </div>
                           
                           {stockInputMode === 'pezzi' ? (
@@ -1238,7 +1347,6 @@
                         <button onClick={handleExportExcel} className="flex-1 min-w-[180px] bg-green-600 hover:bg-green-700 text-white px-4 py-4 rounded-3xl font-black text-lg flex items-center justify-center gap-2 shadow-sm transition-transform active:scale-95"><Download className="w-6 h-6" /> {translations[lang].excel}</button>
                     </div>
 
-                    {/* BARRA DELLE CATEGORIE CON SCROLLBAR INTELLIGENTE */}
                     <div className="flex gap-3 py-3 w-full overflow-x-auto custom-scrollbar flex-nowrap items-center">
                       <button onClick={() => setInventoryFilter('Tutti')} className={`px-6 py-3 rounded-full shrink-0 font-black border-2 whitespace-nowrap text-base shadow-sm transition-colors ${inventoryFilter === 'Tutti' ? 'bg-[#3b82f6] text-white border-[#3b82f6]' : (isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200')}`}>{translations[lang].all}</button>
                       {categorie.map(c => <button key={c} onClick={() => setInventoryFilter(c)} className={`px-6 py-3 rounded-full shrink-0 font-black border-2 whitespace-nowrap text-base shadow-sm transition-colors ${inventoryFilter === c ? 'bg-[#3b82f6] text-white border-[#3b82f6]' : (isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200')}`}>{translations[lang][c] ? translations[lang][c].toUpperCase() : c.toUpperCase()}</button>)}
@@ -1254,7 +1362,20 @@
 
                         const calcCartons = Math.floor(stock / cSize);
                         const calcSingles = stock % cSize;
+                        
                         const validLots = (!item.hasNoLots && Array.isArray(item.lots)) ? item.lots : [];
+                        const sortedValidLots = [...validLots].filter(l => (parseInt(l.qty) || 0) > 0).sort((a, b) => {
+                            const aSenzaLotto = !a.id || a.id.trim() === '' || a.id === 'L-Nuovo';
+                            const bSenzaLotto = !b.id || b.id.trim() === '' || b.id === 'L-Nuovo';
+                            if (aSenzaLotto && !bSenzaLotto) return -1;
+                            if (!aSenzaLotto && bSenzaLotto) return 1;
+                            return parseDateToMs(a.expiry) - parseDateToMs(b.expiry);
+                        });
+                        
+                        const activeLot = sortedValidLots.length > 0 ? sortedValidLots[0] : null;
+                        const packsInActiveLot = activeLot ? Math.floor(activeLot.qty / pPack) : 0;
+                        const lotAlertValue = parseInt(item.lotAlertThreshold) || 0;
+                        const isLotLow = activeLot && lotAlertValue > 0 && packsInActiveLot <= lotAlertValue;
                         
                         const assignedLotsQty = validLots.reduce((sum, l) => sum + (parseInt(l.qty) || 0), 0);
                         const unassignedQty = Math.max(0, stock - assignedLotsQty);
@@ -1276,8 +1397,9 @@
                               <div className="relative mt-2"><span className={`absolute -top-3.5 left-2 px-2 text-base md:text-lg font-black text-[#3b82f6] dark:text-blue-400 ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>{translations[lang].totalPz}</span><input type="number" value={editFormData.totalStock} onChange={e => setEditFormData({...editFormData, totalStock: e.target.value})} className={`w-full p-4 rounded-xl border-2 text-center font-black text-3xl md:text-4xl border-blue-300 bg-transparent ${isDarkMode ? 'text-white' : ''}`} /></div>
                               <div className="relative mt-2"><span className={`absolute -top-3.5 left-2 px-2 text-base md:text-lg font-black ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>{translations[lang].pzCart}</span><input type="number" value={editFormData.cartonSize} onChange={e => setEditFormData({...editFormData, cartonSize: e.target.value})} className={`w-full p-4 rounded-xl border-2 text-center font-black text-3xl md:text-4xl bg-transparent ${isDarkMode ? 'text-white border-slate-600' : 'border-slate-300'}`} /></div>
                             </div>
-                            <div className="grid grid-cols-2 gap-4 mt-3 w-full">
+                            <div className="grid grid-cols-3 gap-4 mt-3 w-full">
                               <div className="relative mt-2"><span className={`absolute -top-3.5 left-2 px-2 text-base md:text-lg font-black text-orange-500 dark:text-orange-400 ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>{translations[lang].alertPz}</span><input type="number" value={editFormData.alertThreshold} onChange={e => setEditFormData({...editFormData, alertThreshold: e.target.value})} className={`w-full p-4 rounded-xl border-2 text-center font-black text-2xl bg-transparent ${isDarkMode ? 'text-white border-slate-600' : 'border-slate-300'}`} /></div>
+                              <div className="relative mt-2"><span className={`absolute -top-3.5 left-2 px-2 text-base md:text-lg font-black text-purple-500 dark:text-purple-400 ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>All. Conf. Lotto</span><input type="number" value={editFormData.lotAlertThreshold} onChange={e => setEditFormData({...editFormData, lotAlertThreshold: e.target.value})} className={`w-full p-4 rounded-xl border-2 text-center font-black text-2xl bg-transparent ${isDarkMode ? 'text-white border-purple-600' : 'border-purple-300'}`} /></div>
                               <div className="relative mt-2"><span className={`absolute -top-3.5 left-2 px-2 text-base md:text-lg font-black text-emerald-600 dark:text-emerald-400 ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>{translations[lang].pzConf}</span><input type="number" value={editFormData.piecesPerPack} onChange={e => setEditFormData({...editFormData, piecesPerPack: e.target.value})} className={`w-full p-4 rounded-xl border-2 text-center font-black text-2xl border-emerald-300 bg-transparent ${isDarkMode ? 'text-white' : ''}`} /></div>
                             </div>
                             <div className="flex gap-2 items-center w-full mt-3 p-3 bg-slate-50 dark:bg-slate-700/50 rounded-2xl border-2 border-slate-200 dark:border-slate-600">
@@ -1289,7 +1411,6 @@
                                <label htmlFor={`nolot-${item.id}`} className="font-bold text-slate-700 dark:text-slate-300 text-sm md:text-lg">{translations[lang].noLotsMode}</label>
                             </div>
                             
-                            {/* TEXTAREA NOTA PRODOTTO */}
                             <div className="relative mt-4 w-full">
                                 <span className={`absolute -top-3.5 left-2 px-2 text-sm md:text-base font-black text-yellow-600 dark:text-yellow-400 ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>Nota Prodotto (Post-it)</span>
                                 <textarea value={editFormData.productNote || ''} onChange={e => setEditFormData({...editFormData, productNote: e.target.value})} className={`w-full p-4 rounded-xl border-2 font-bold border-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-900 dark:text-yellow-100 outline-none`} rows="2" placeholder="Scrivi un appunto visibile sotto il prodotto..."></textarea>
@@ -1312,7 +1433,7 @@
                                         {(item.name || 'Senza Nome').toUpperCase()}
                                       </h3>
                                       <button 
-                                        onClick={() => { setEditingItemId(item.id); setEditFormData({ name: item.name, cartonSize: cSize, piecesPerPack: pPack, totalStock: stock, alertThreshold: item.alertThreshold, isToOrder: item.isToOrder || false, excludeFromSamples: item.excludeFromSamples || false, hasNoLots: item.hasNoLots || false, incoming: item.incoming||0, incomingDate: item.incomingDate||'', orderDate: item.orderDate||'', orderConfirmed: item.orderConfirmed||false, productNote: item.productNote || '' }); }} 
+                                        onClick={() => { setEditingItemId(item.id); setEditFormData({ name: item.name, cartonSize: cSize, piecesPerPack: pPack, totalStock: stock, alertThreshold: item.alertThreshold, lotAlertThreshold: item.lotAlertThreshold, isToOrder: item.isToOrder || false, excludeFromSamples: item.excludeFromSamples || false, hasNoLots: item.hasNoLots || false, incoming: item.incoming||0, incomingDate: item.incomingDate||'', orderDate: item.orderDate||'', orderConfirmed: item.orderConfirmed||false, productNote: item.productNote || '' }); }} 
                                         className="p-2 bg-slate-200/60 dark:bg-slate-700 rounded-full flex-shrink-0 hover:bg-blue-100 text-slate-500 hover:text-[#3b82f6] transition-colors mt-0.5"
                                         title="Modifica prodotto"
                                       >
@@ -1334,14 +1455,57 @@
                                     </div>
                                 </div>
 
-                                <div className="mt-4 md:mt-6 flex flex-col gap-2 w-full">
-                                    <p className={`text-2xl md:text-3xl font-black break-words ${isLow ? 'text-red-800 dark:text-red-200' : 'text-slate-700 dark:text-slate-300'}`}>
-                                      📦 {translations[lang].scatoleSciolte.replace('{singoli}', calcSingles).replace('boxes', calcCartons).replace('cart.', calcCartons)}
-                                    </p>
-                                    <p className="text-2xl md:text-3xl font-black text-emerald-600 flex items-center gap-2 break-words"><ShoppingBag className="w-7 h-7 flex-shrink-0" /> <span>{confVendibili} {translations[lang].confezioni}</span></p>
+                                <div className="mt-4 flex flex-col gap-1 w-full">
+                                    <h4 className="font-black text-[11px] md:text-xs uppercase tracking-widest text-slate-400">{translations[lang].totalStockLabel}</h4>
+                                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+                                        <p className={`text-xl md:text-2xl font-black break-words ${isLow ? 'text-red-800 dark:text-red-200' : 'text-slate-700 dark:text-slate-300'}`}>
+                                          📦 {translations[lang].scatoleSciolte.replace('{singoli}', calcSingles).replace('boxes', calcCartons).replace('cart.', calcCartons)}
+                                        </p>
+                                        <p className="text-xl md:text-2xl font-black text-emerald-600 flex items-center gap-1 break-words"><ShoppingBag className="w-5 h-5 flex-shrink-0" /> {confVendibili} {translations[lang].confezioni}</p>
+                                    </div>
                                 </div>
 
-                                {/* POST-IT NOTA PRODOTTO IN VISUALIZZAZIONE */}
+                                {activeLot && (
+                                    <div className={`mt-4 p-3 md:p-4 rounded-2xl border-2 shadow-sm relative overflow-hidden ${
+                                        isLotLow 
+                                        ? 'bg-purple-50 border-purple-300 dark:bg-purple-900/30 dark:border-purple-700' 
+                                        : 'bg-[#f0f7ff] border-blue-200 dark:bg-blue-900/20 dark:border-blue-800/50'
+                                    }`}>
+                                        {isLotLow && (
+                                            <div className="absolute top-0 left-0 w-full h-1 bg-purple-500 animate-pulse"></div>
+                                        )}
+                                        <div className="flex justify-between items-center mb-2">
+                                            <span className={`font-black text-xs uppercase tracking-widest flex items-center gap-1 ${isLotLow ? 'text-purple-600 dark:text-purple-400' : 'text-blue-600 dark:text-blue-400'}`}>
+                                                <Activity className="w-4 h-4" /> {translations[lang].activeLot}
+                                            </span>
+                                            {isLotLow && (
+                                                <span className="font-black text-[10px] md:text-xs text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900/50 px-2 py-0.5 rounded-md flex items-center gap-1 animate-pulse border border-purple-200 dark:border-purple-800">
+                                                    <AlertTriangle className="w-3 h-3"/> {translations[lang].runningOut}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="flex justify-between items-end">
+                                            <div className="min-w-0 pr-2">
+                                                <p className="font-black text-lg md:text-xl text-slate-800 dark:text-slate-100 truncate">{cleanLotId(activeLot.id) || translations[lang].senzaLotto}</p>
+                                                <p className="font-bold text-slate-500 text-sm">{translations[lang].expiryLabel}: {formatDateStr(activeLot.expiry)}</p>
+                                            </div>
+                                            <div className="text-right shrink-0">
+                                                <p className={`font-black text-2xl md:text-3xl ${isLotLow ? 'text-purple-600 dark:text-purple-400' : 'text-blue-600 dark:text-blue-400'}`}>{activeLot.qty} <span className="text-sm font-bold opacity-70">pz</span></p>
+                                            </div>
+                                        </div>
+                                        <div className={`flex gap-2 mt-3 pt-3 border-t ${isLotLow ? 'border-purple-200/50 dark:border-purple-700/50' : 'border-blue-200/50 dark:border-blue-700/50'}`}>
+                                            <div className="flex-1 bg-white/60 dark:bg-slate-800/60 rounded-xl p-2 text-center border border-white/40 dark:border-slate-700/50">
+                                                <span className="block text-[10px] font-black text-slate-400 uppercase">{translations[lang].cartonsLabel}</span>
+                                                <span className="font-black text-lg md:text-xl text-slate-700 dark:text-slate-300">📦 {Math.floor(activeLot.qty / (parseInt(activeLot.cartonSize) || cSize))}</span>
+                                            </div>
+                                            <div className="flex-1 bg-white/60 dark:bg-slate-800/60 rounded-xl p-2 text-center border border-white/40 dark:border-slate-700/50">
+                                                <span className="block text-[10px] font-black text-slate-400 uppercase">{translations[lang].packsLabel}</span>
+                                                <span className={`font-black text-lg md:text-xl ${isLotLow ? 'text-purple-600 dark:text-purple-400' : 'text-emerald-600 dark:text-emerald-400'}`}>🛍️ {packsInActiveLot}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {item.productNote && item.productNote.trim() !== '' && (
                                     <div className="mt-4 bg-yellow-100 dark:bg-yellow-900/40 border-l-4 border-yellow-400 p-3 md:p-4 rounded-r-xl shadow-sm relative w-full">
                                         <StickyNote className="absolute top-3 right-3 w-5 h-5 text-yellow-500 opacity-40" />
@@ -1362,16 +1526,20 @@
                                     <button onClick={() => handleQuickStock(item, cSize)} className="shrink-0 px-3 py-4 md:p-4 bg-white hover:bg-slate-200 dark:bg-slate-800 rounded-2xl text-green-600 shadow-md active:scale-95 transition-transform"><Plus className="w-8 h-8 font-black"/></button>
                                 </div>
 
-                                {(!item.hasNoLots && (validLots.length > 0 || unassignedQty > 0)) && (
-                                    <div className="bg-white dark:bg-slate-800 rounded-2xl p-3 border-2 border-slate-200 dark:border-slate-600 w-full flex flex-col gap-1">
-                                        {validLots.map((l, i) => (
-                                            <p key={i} className="text-lg font-black text-slate-800 dark:text-slate-200 break-words flex justify-between items-center">
-                                                <span className="truncate pr-2">{cleanLotId(l.id) ? cleanLotId(l.id) : 'Lotto'} {l.expiry && l.expiry !== '-' && <span className="opacity-70 text-sm">({formatDateStr(l.expiry)})</span>}</span>
+                                {(!item.hasNoLots && (sortedValidLots.length > 0 || unassignedQty > 0)) && (
+                                    <div className="bg-white dark:bg-slate-800 rounded-2xl p-2 md:p-3 border-2 border-slate-200 dark:border-slate-600 w-full flex flex-col gap-1">
+                                        {sortedValidLots.map((l, i) => (
+                                            <p key={i} className={`text-sm md:text-base font-black break-words flex justify-between items-center px-2 py-1.5 rounded-lg ${i === 0 ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border border-blue-100 dark:border-blue-800/50' : 'text-slate-600 dark:text-slate-400'}`}>
+                                                <span className="truncate pr-2 flex items-center gap-1.5">
+                                                    {i === 0 && <Activity className="w-3.5 h-3.5 text-blue-500" title="Lotto in Uso" />}
+                                                    {cleanLotId(l.id) ? cleanLotId(l.id) : 'Lotto'} 
+                                                    {l.expiry && l.expiry !== '-' && <span className="opacity-70 text-[10px] sm:text-xs">({formatDateStr(l.expiry)})</span>}
+                                                </span>
                                                 <span className="text-[#3b82f6] shrink-0">{l.qty}pz</span>
                                             </p>
                                         ))}
                                         {unassignedQty > 0 && (
-                                            <p className={`text-lg font-black text-slate-500 dark:text-slate-400 break-words flex justify-between items-center mt-1 pt-1 ${validLots.length > 0 ? 'border-t border-slate-100 dark:border-slate-700' : ''}`}>
+                                            <p className={`text-sm md:text-base font-black text-slate-500 dark:text-slate-400 break-words flex justify-between items-center px-2 py-1.5 mt-1 border-t border-slate-100 dark:border-slate-700`}>
                                                 <span className="truncate pr-2">{translations[lang].senzaLotto}</span>
                                                 <span className="shrink-0">{unassignedQty}pz</span>
                                             </p>
@@ -1385,7 +1553,6 @@
                                           onClick={() => { 
                                               setEditingLotsId(item.id); 
                                               const currentLots = Array.isArray(item.lots) ? item.lots : [];
-                                              // Converti al volo eventuali vecchie date (YYYY-MM-DD) al nuovo formato
                                               setEditLotsData(currentLots.map(l => {
                                                   let exp = l.expiry;
                                                   if (exp && /^\d{4}-\d{2}-\d{2}$/.test(exp)) {
@@ -1423,8 +1590,6 @@
                   </div>
                 )}
 
-                {}
-                {/* --- ORDINI --- */}
                 {currentView === 'ordini' && (
                   <div className="space-y-6 w-full animate-fade-in">
                      <div className={`p-5 rounded-3xl border-2 flex mobile-stack justify-between items-center gap-4 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
@@ -1435,8 +1600,14 @@
                        <button onClick={handleWhatsAppReminder} className="bg-green-500 hover:bg-green-600 text-white px-6 py-4 rounded-2xl font-black text-lg flex items-center justify-center gap-2 shadow-md w-full md:w-auto"><MessageCircle className="w-6 h-6"/> {translations[lang].whatsAppOrderBtn}</button>
                      </div>
 
+                     {/* BARRA DELLE CATEGORIE PER GLI ORDINI */}
+                     <div className="flex gap-3 py-1 w-full overflow-x-auto custom-scrollbar flex-nowrap items-center">
+                       <button onClick={() => setOrderFilter('Tutti')} className={`px-6 py-3 rounded-full shrink-0 font-black border-2 whitespace-nowrap text-base shadow-sm transition-colors ${orderFilter === 'Tutti' ? 'bg-orange-500 text-white border-orange-500' : (isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200')}`}>{translations[lang].all}</button>
+                       {categorie.map(c => <button key={c} onClick={() => setOrderFilter(c)} className={`px-6 py-3 rounded-full shrink-0 font-black border-2 whitespace-nowrap text-base shadow-sm transition-colors ${orderFilter === c ? 'bg-orange-500 text-white border-orange-500' : (isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200')}`}>{translations[lang][c] ? translations[lang][c].toUpperCase() : c.toUpperCase()}</button>)}
+                     </div>
+
                      <div className="space-y-3">
-                        {items.filter(i => i.isToOrder).map(item => {
+                        {items.filter(i => i.isToOrder && (orderFilter === 'Tutti' || i.category === orderFilter)).map(item => {
                            const isOrdered = (parseInt(item.incoming) || 0) > 0 || item.orderDate;
                            const daysSinceOrder = getDaysSince(item.orderDate);
                            const needsFollowUp = isOrdered && !item.orderConfirmed && daysSinceOrder >= 4;
@@ -1502,7 +1673,10 @@
                                  : 'border-orange-200 bg-orange-50/70 dark:border-orange-900/40 dark:bg-orange-950/20 text-slate-900 dark:text-white'
                              }`}>
                                 <div className="flex-1 min-w-0 w-full">
-                                    <h4 className="font-black text-2xl leading-tight truncate" title={item.name}>{item.name || 'Prodotto'}</h4>
+                                    <div className="flex items-center justify-between mb-1">
+                                        <h4 className="font-black text-2xl leading-tight truncate pr-2" title={item.name}>{item.name || 'Prodotto'}</h4>
+                                        <span className="text-[10px] font-black uppercase tracking-wider opacity-50 px-2 py-1 bg-black/5 rounded-lg">{item.category}</span>
+                                    </div>
                                     <p className="font-bold text-red-500 mt-1">{translations[lang].totalPz}: {item.stock} pz</p>
                                     
                                     {isOrdered && (
@@ -1538,7 +1712,7 @@
                                        </div>
                                     )}
                                     
-                                    <button onClick={() => { setEditingItemId(item.id); setEditFormData({ name: item.name, cartonSize: parseInt(item.cartonSize) || 10, piecesPerPack: parseInt(item.piecesPerPack) || 1, totalStock: parseInt(item.stock) || 0, alertThreshold: item.alertThreshold, incoming: item.incoming || 0, incomingDate: item.incomingDate || '', orderDate: item.orderDate || new Date().toISOString().split('T')[0], isToOrder: true, excludeFromSamples: item.excludeFromSamples || false, hasNoLots: item.hasNoLots || false, orderConfirmed: item.orderConfirmed || false, productNote: item.productNote || '' }); }} className={`mt-4 font-black text-sm flex items-center justify-center gap-2 px-5 py-3 rounded-xl border shadow-sm transition-colors w-full sm:w-auto ${isOrdered ? 'bg-emerald-200 border-emerald-400 text-emerald-800 dark:bg-emerald-700 dark:border-emerald-600 dark:text-white hover:bg-emerald-300' : 'bg-slate-100 border-slate-300 text-slate-700 dark:bg-slate-700 dark:text-white hover:bg-slate-200'}`}>
+                                    <button onClick={() => { setEditingItemId(item.id); setEditFormData({ name: item.name, cartonSize: parseInt(item.cartonSize) || 10, piecesPerPack: parseInt(item.piecesPerPack) || 1, totalStock: parseInt(item.stock) || 0, alertThreshold: item.alertThreshold, lotAlertThreshold: item.lotAlertThreshold, incoming: item.incoming || 0, incomingDate: item.incomingDate || '', orderDate: item.orderDate || new Date().toISOString().split('T')[0], isToOrder: true, excludeFromSamples: item.excludeFromSamples || false, hasNoLots: item.hasNoLots || false, orderConfirmed: item.orderConfirmed || false, productNote: item.productNote || '' }); }} className={`mt-4 font-black text-sm flex items-center justify-center gap-2 px-5 py-3 rounded-xl border shadow-sm transition-colors w-full sm:w-auto ${isOrdered ? 'bg-emerald-200 border-emerald-400 text-emerald-800 dark:bg-emerald-700 dark:border-emerald-600 dark:text-white hover:bg-emerald-300' : 'bg-slate-100 border-slate-300 text-slate-700 dark:bg-slate-700 dark:text-white hover:bg-slate-200'}`}>
                                         <Pencil className="w-5 h-5" /> {isOrdered ? translations[lang].modificaOrdine : translations[lang].registraOrdine}
                                     </button>
                                 </div>
@@ -1546,10 +1720,9 @@
                              </div>
                            );
                         })}
-                        {items.filter(i => i.isToOrder).length === 0 && <p className="text-center opacity-40 font-bold py-5">{translations[lang].noOrders}</p>}
+                        {items.filter(i => i.isToOrder && (orderFilter === 'Tutti' || i.category === orderFilter)).length === 0 && <p className="text-center opacity-40 font-bold py-5">{translations[lang].noOrders}</p>}
                      </div>
 
-                     {/* REGISTRO RIFORNIMENTI */}
                      <div className={`p-5 rounded-3xl border-2 mt-8 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
                         <div className="flex items-center gap-2 mb-4 border-b-2 border-slate-100 dark:border-slate-700 pb-3">
                             <History className="w-7 h-7 text-emerald-500" />
@@ -1580,8 +1753,6 @@
                   </div>
                 )}
 
-                {}
-                {/* --- STORICO GENERALE --- */}
                 {currentView === 'history' && (
                   <div className="space-y-4 w-full animate-fade-in">
                      <div className={`p-5 rounded-3xl border-2 flex justify-between items-center gap-4 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
@@ -1608,8 +1779,6 @@
                   </div>
                 )}
 
-                {}
-                {/* --- CAMPIONI DASHBOARD --- */}
                 {currentView === 'dashboard' && (
                   <div className="space-y-4 w-full">
                      <div className={`p-5 rounded-3xl border-2 flex flex-col gap-4 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
@@ -1631,9 +1800,10 @@
                             <h3 className="font-black text-2xl text-[#3b82f6] truncate" title={s.destination}>{s.destination} <span className="text-slate-400 text-xl">({s.region})</span></h3>
                             <p className="font-bold text-slate-500 text-sm mt-1">{new Date(s.createdAt).toLocaleString('it-IT')}</p>
                          </div>
-                         <div className="flex gap-3">
-                            <button onClick={() => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shipments', s.id))} className="p-4 text-red-600 bg-red-50 dark:bg-red-900/20 rounded-2xl shrink-0"><Trash2 className="w-6 h-6" /></button>
-                            <button onClick={() => { setActiveEntityName(s.destination); setActiveEntityRegion(s.region); setBackView('dashboard'); setCurrentView('repDetails'); }} className={`flex-1 md:w-40 flex items-center justify-center gap-2 px-6 py-4 rounded-2xl font-black border text-center shadow-sm transition-colors bg-[#3b82f6] text-white border-[#3b82f6]`}>
+                         <div className="flex gap-2">
+                            <button onClick={() => setShipmentToDelete(s)} className="p-4 text-red-600 hover:text-white bg-red-50 hover:bg-red-500 dark:bg-red-900/20 rounded-2xl shrink-0 transition-colors border border-red-200 dark:border-red-800"><Trash2 className="w-6 h-6" /></button>
+                            <button onClick={() => apriModificaCampionatura(s)} className="p-4 text-slate-600 hover:text-[#3b82f6] bg-slate-100 hover:bg-blue-50 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-2xl shrink-0 transition-colors border border-slate-200 dark:border-slate-600"><Pencil className="w-6 h-6" /></button>
+                            <button onClick={() => { setActiveEntityName(s.destination); setActiveEntityRegion(s.region); setBackView('dashboard'); setCurrentView('repDetails'); }} className={`flex-1 md:w-32 flex items-center justify-center gap-2 px-6 py-4 rounded-2xl font-black border text-center shadow-sm transition-colors bg-[#3b82f6] text-white border-[#3b82f6]`}>
                                 {translations[lang].detailsBtn}
                             </button>
                          </div>
@@ -1643,11 +1813,10 @@
                   </div>
                 )}
 
-                {/* --- NUOVA ASSEGNAZIONE --- */}
                 {currentView === 'new' && (
                   <div className={`p-5 rounded-3xl border-2 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
-                    <button onClick={() => setCurrentView('dashboard')} className="flex items-center gap-1.5 mb-5 font-black text-sm uppercase opacity-70"><ArrowLeft className="w-5 h-5"/> {translations[lang].back}</button>
-                    <h2 className="text-2xl font-black mb-5">{translations[lang].newAssignment}</h2>
+                    <button onClick={() => { setCurrentView('dashboard'); setEditingShipmentId(null); setNewDest(''); setNewRegion(''); setSampleQuantities({}); setExtraItems([{ id: 'init', name: '', qty: '' }]); }} className="flex items-center gap-1.5 mb-5 font-black text-sm uppercase opacity-70"><ArrowLeft className="w-5 h-5"/> {translations[lang].back}</button>
+                    <h2 className="text-2xl font-black mb-5">{editingShipmentId ? translations[lang].editAssignment : translations[lang].newAssignment}</h2>
                     
                     <div className="flex bg-slate-200 dark:bg-slate-700 p-1.5 rounded-2xl mb-5 shadow-inner">
                         <button onClick={()=>{setDestType('informatore'); setNewDest(''); setNewRegion('');}} className={`flex-1 py-3 rounded-xl font-black text-base transition-all ${destType==='informatore' ? 'bg-white dark:bg-slate-800 shadow-sm text-[#3b82f6]' : 'text-slate-500'}`}>INFORMATORE</button>
@@ -1717,12 +1886,10 @@
                         <button onClick={() => setExtraItems([...extraItems, { id: Date.now().toString(), name: '', qty: '' }])} className="text-[#3b82f6] font-black text-base mt-2 flex items-center gap-1"><Plus className="w-6 h-6"/> {translations[lang].addRow}</button>
                     </div>
 
-                    <button onClick={handleAssignSamples} className={`w-full text-white py-5 rounded-2xl font-black text-xl shadow-md flex items-center justify-center gap-2 ${destType === 'congresso' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-[#3b82f6] hover:bg-blue-700'}`}><Save className="w-6 h-6" /> {translations[lang].saveAssignment}</button>
+                    <button onClick={handleAssignSamples} className={`w-full text-white py-5 rounded-2xl font-black text-xl shadow-md flex items-center justify-center gap-2 ${destType === 'congresso' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-[#3b82f6] hover:bg-blue-700'}`}><Save className="w-6 h-6" /> {editingShipmentId ? translations[lang].updateAssignment : translations[lang].saveAssignment}</button>
                   </div>
                 )}
 
-                {}
-                {/* --- RUBRICA INFORMATORI --- */}
                 {currentView === 'informatori' && (
                   <div className="space-y-4 w-full">
                      <div className={`p-4 sm:p-5 rounded-3xl border-2 w-full shadow-sm ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
@@ -1767,7 +1934,6 @@
                   </div>
                 )}
 
-                {/* --- RUBRICA CONGRESSI --- */}
                 {currentView === 'congressi' && (
                   <div className="space-y-4 w-full">
                      <div className={`p-4 sm:p-5 rounded-3xl border-2 w-full shadow-sm ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
@@ -1812,7 +1978,6 @@
                   </div>
                 )}
 
-                {/* --- PAGINA DETTAGLI STORICO --- */}
                 {currentView === 'repDetails' && (() => {
                   const entityShipments = shipments.filter(s => s.destination === activeEntityName);
                   return (
@@ -1861,8 +2026,6 @@
                   )
                 })()}
 
-                {}
-                {/* --- NOTE CON TENDINA --- */}
                 {currentView === 'notes' && (
                   <div className="space-y-4 w-full animate-fade-in">
                      <div className={`p-5 rounded-3xl border-2 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
@@ -1901,7 +2064,6 @@
                   </div>
                 )}
 
-                {/* --- MODAL LOTTI --- */}
                 {editingLotsId && (
                   <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-sm flex justify-center items-center p-4">
                     <div className="w-full max-w-md max-h-[90vh] rounded-3xl border-2 border-emerald-500 shadow-2xl flex flex-col overflow-hidden bg-white dark:bg-slate-900">
@@ -1953,7 +2115,6 @@
                   </div>
                 )}
 
-                {/* --- MODAL WHATSAPP ORDINI --- */}
                 {showWhatsAppModal && (
                   <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-sm flex justify-center items-center p-4">
                     <div className="w-full max-w-sm rounded-3xl border-2 border-green-500 shadow-2xl flex flex-col overflow-hidden bg-white dark:bg-slate-900">
@@ -1988,8 +2149,7 @@
 
               </main>
 
-              {}
-              {/* MODAL: ELIMINA PRODOTTO */}
+              {/* MODALI DI CANCELLAZIONE */}
               {itemToDelete && (
                   <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6">
                       <div className="bg-white dark:bg-slate-800 p-8 rounded-[40px] border-4 border-red-500 shadow-2xl text-center space-y-6 max-w-sm w-full animate-fade-in">
@@ -2008,7 +2168,26 @@
                   </div>
               )}
 
-              {/* MODAL: PULISCI STORICO */}
+              {shipmentToDelete && (
+                  <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6">
+                      <div className="bg-white dark:bg-slate-800 p-8 rounded-[40px] border-4 border-red-500 shadow-2xl text-center space-y-6 max-w-sm w-full animate-fade-in">
+                          <div className="flex justify-center"><AlertTriangle className="w-20 h-20 text-red-500 animate-pulse"/></div>
+                          <h3 className="text-3xl font-black text-slate-900 dark:text-white">{translations[lang].deleteSampleTitle}</h3>
+                          <p className="text-xl font-bold opacity-70 text-slate-900 dark:text-white">
+                              {translations[lang].deleteSampleConfirm} "{shipmentToDelete.destination}"?<br/>
+                              <span className="text-red-500 text-sm mt-2 block">{translations[lang].deleteSampleWarning}</span>
+                          </p>
+                          <div className="flex flex-col gap-3">
+                              <button onClick={async () => {
+                                  await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shipments', shipmentToDelete.id));
+                                  setShipmentToDelete(null);
+                              }} className="w-full bg-red-600 text-white py-5 rounded-2xl font-black text-xl shadow-md uppercase active:scale-95 transition-transform">{translations[lang].yesDelete}</button>
+                              <button onClick={() => setShipmentToDelete(null)} className="w-full bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white py-4 rounded-2xl font-black text-xl uppercase active:scale-95 transition-transform">{translations[lang].cancelBtn}</button>
+                          </div>
+                      </div>
+                  </div>
+              )}
+
               {showClearLogsModal && (
                   <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6">
                       <div className="bg-white dark:bg-slate-800 p-8 rounded-[40px] border-4 border-red-500 shadow-2xl text-center space-y-6 max-w-sm w-full animate-fade-in">
